@@ -20,72 +20,67 @@ function bootSpeccyGo() {
     }
 
     if (window.location.protocol === 'file:') {
-        logToScreen("FATAL ERROR: Running via file:/// protocol. Safari blocks WASM.", true);
+        logToScreen("FATAL ERROR: Running via file:/// protocol.", true);
         return;
     }
-
-    logToScreen("BIOS Loaded. System Diagnostics OK.");
-    logToScreen("Z80 Engine ready in standby mode.");
-
-    // Add the interactive Tap-to-Start UI
-    const startPrompt = document.createElement("div");
-    startPrompt.innerHTML = "INSERT COIN<br><br>(TAP SCREEN TO BOOT)";
-    startPrompt.className = "blink-prompt";
-    bootLog.appendChild(startPrompt);
 
     let speccyInstance = null;
     const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
 
-    // THE FIX: Defer engine creation until Safari registers a user gesture
-    function startEngine() {
-        // Prevent double-firing
-        document.body.removeEventListener("touchstart", startEngine);
-        document.body.removeEventListener("click", startEngine);
+    try {
+        logToScreen("BIOS Loaded. Initializing Z80 Engine...");
 
-        startPrompt.innerHTML = "BOOTING...";
-        startPrompt.style.animation = "none";
-        startPrompt.style.color = "#0f0";
+        // 1. Initialize immediately WITHOUT the ROM.
+        // Safari will block the async audio and force the native Play button to appear.
+        speccyInstance = JSSpeccy(speccyContainer, {
+            machine: 48, 
+            border: true,
+            uiEnabled: false,
+            autoStart: true,         
+            autoLoadTapes: true
+        });
 
-        try {
-            // Because this is inside a click/touch event, Safari grants full AutoPlay and WASM rights
-            speccyInstance = JSSpeccy(speccyContainer, {
-                machine: 48, 
-                border: true,
-                uiEnabled: false,
-                autoStart: true,         
-                autoLoadTapes: true,     
-                openUrl: targetRom       
-            });
-            
-            logToScreen(`Mounting ${targetRom}...`);
-            
-            // Fade out the boot screen to reveal the running game
-            setTimeout(() => { 
-                if (bootScreen) {
-                    bootScreen.style.transition = "opacity 0.5s ease";
-                    bootScreen.style.opacity = "0";
-                    setTimeout(() => bootScreen.style.display = 'none', 500);
-                }
-            }, 1500);
+        logToScreen("Engine compiled. Waiting for user to unlock audio...");
+        
+        // Hide our green boot terminal after a moment so the user can clearly see and click the Play button
+        setTimeout(() => {
+            if (bootScreen) {
+                bootScreen.style.transition = "opacity 0.5s ease";
+                bootScreen.style.opacity = "0";
+                setTimeout(() => bootScreen.style.display = 'none', 500);
+            }
+        }, 1500);
 
-        } catch (err) {
-            logToScreen(`Crash: ${err.message}`, true);
-        }
+        // 2. Intercept the user's tap on the Play button
+        speccyContainer.addEventListener("click", () => {
+            if (!window.romMounted) {
+                window.romMounted = true;
+                
+                // The engine is now unlocking. Wait a brief moment for the CPU to stabilize, then inject the tape.
+                setTimeout(() => {
+                    try {
+                        speccyInstance.openUrl(targetRom);
+                        console.log(`[SpeccyGo] Tape mounted: ${targetRom}`);
+                    } catch (e) {
+                        console.error("[SpeccyGo] Tape mount failed:", e);
+                    }
+                }, 600);
+            }
+        });
+
+        // Input Mapping
+        window.addEventListener("SPECCY_INPUT", (e) => {
+            if (!speccyInstance) return;
+            const { key, state } = e.detail;
+            const keyMap = { 'up': 'q', 'down': 'a', 'left': 'o', 'right': 'p', 'fire': ' ' };
+            if (keyMap[key]) {
+                window.dispatchEvent(new KeyboardEvent(state === 'PRESSED' ? 'keydown' : 'keyup', { key: keyMap[key], bubbles: true }));
+            }
+        });
+
+    } catch (err) {
+        logToScreen(`Crash: ${err.message}`, true);
     }
-
-    // Listen for the first physical gesture to unlock the browser restrictions
-    document.body.addEventListener("touchstart", startEngine, { once: true });
-    document.body.addEventListener("click", startEngine, { once: true });
-
-    // Input Mapping
-    window.addEventListener("SPECCY_INPUT", (e) => {
-        if (!speccyInstance) return;
-        const { key, state } = e.detail;
-        const keyMap = { 'up': 'q', 'down': 'a', 'left': 'o', 'right': 'p', 'fire': ' ' };
-        if (keyMap[key]) {
-            window.dispatchEvent(new KeyboardEvent(state === 'PRESSED' ? 'keydown' : 'keyup', { key: keyMap[key], bubbles: true }));
-        }
-    });
 }
 
 if (document.readyState === "loading") {
