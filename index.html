@@ -13,7 +13,11 @@
     </div>
 
     <div id="game-container">
-        <canvas id="speccy-canvas" width="256" height="192"></canvas>
+        <div id="speccy-container"></div>
+        
+        <div id="boot-screen">
+            <p id="boot-log">> SpeccyGo BIOS v1.0...</p>
+        </div>
 
         <div id="floating-controller" class="hidden">
             <div class="d-pad">
@@ -27,14 +31,13 @@
             <div class="action-buttons">
                 <button id="btn-fire" class="ctrl-btn action" data-key="fire">FIRE</button>
             </div>
-            
             <div class="system-buttons">
                 <button id="btn-toggle-input">Mode: Joystick</button>
             </div>
         </div>
     </div>
 
-    <script src="js/jsspeccy.js"></script> 
+    <script src="js/jsspeccy.js"></script>
     <script src="js/input.js"></script>
     <script src="js/emulator.js"></script>
 </body>
