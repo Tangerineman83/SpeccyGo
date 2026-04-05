@@ -1,59 +1,80 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Prepare the DOM for JSSpeccy 3
-    const oldCanvas = document.getElementById("speccy-canvas");
-    const speccyContainer = document.createElement("div");
-    speccyContainer.id = "speccy-container";
-    speccyContainer.style.width = "100%";
-    speccyContainer.style.maxWidth = "800px";
-    speccyContainer.style.aspectRatio = "4/3";
-    speccyContainer.style.border = "2px solid #333";
-    speccyContainer.style.backgroundColor = "#000";
-    
-    // Swap the canvas for the div without touching index.html
-    oldCanvas.parentNode.replaceChild(speccyContainer, oldCanvas);
+    const speccyContainer = document.getElementById("speccy-container");
+    const bootScreen = document.getElementById("boot-screen");
+    const bootLog = document.getElementById("boot-log");
 
-    // 2. Dynamic ROM Locator
-    const defaultRom = "FastFood.tzx";
-    const romBasePath = "assets/roms/";
-    const urlParams = new URLSearchParams(window.location.search);
-    const requestedGame = urlParams.get('game');
-    const targetRom = requestedGame ? `${romBasePath}${requestedGame}` : `${romBasePath}${defaultRom}`;
+    // Helper to print directly to the game screen
+    function logToScreen(message, isError = false) {
+        const span = document.createElement("span");
+        span.innerHTML = `<br>> ${message}`;
+        if (isError) span.className = "error-text";
+        bootLog.appendChild(span);
+        console[isError ? 'error' : 'log'](message);
+    }
 
-    let speccyInstance = null;
-
-    // 3. Initialize JSSpeccy 3 with Auto-Boot Flags
-    if (typeof JSSpeccy !== 'undefined') {
-        speccyInstance = new JSSpeccy(speccyContainer, {
-            machine: 48, 
-            border: true,
-            autoStart: true,         // Bypasses the hidden Play button
-            autoLoadTapes: true,     // Automatically executes LOAD ""
-            openUrl: targetRom       // Ingests the .tzx file on boot
-        });
-        console.log(`[SpeccyGo] JSSpeccy 3 Engine started. Loading: ${targetRom}`);
-    } else {
-        speccyContainer.innerHTML = "<p style='color:#00FF00; padding:20px; font-family:monospace;'>ERROR: Z80 Engine missing.<br><br>Please check jsspeccy.js.</p>";
+    // 1. FATAL ERROR CHECK: WebAssembly & Fetch require a local server
+    if (window.location.protocol === 'file:') {
+        logToScreen("FATAL ERROR: Running via file:/// protocol.", true);
+        logToScreen("Browsers block WebAssembly and ROM loading from local hard drives.", true);
+        logToScreen("Please launch this folder using a local web server (e.g., VS Code Live Server).", true);
         return;
     }
 
-    // 4. Input Mapping (Synthesizing native keyboard events)
+    let speccyInstance = null;
+    const defaultRom = "FastFood.tzx";
+    const romBasePath = "assets/roms/";
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetRom = `${romBasePath}${urlParams.get('game') || defaultRom}`;
+
+    logToScreen("Environment OK. Searching for Z80 Engine...");
+
+    // 2. Initialize Engine
+    if (typeof JSSpeccy !== 'undefined') {
+        try {
+            speccyInstance = new JSSpeccy(speccyContainer, {
+                machine: 48, 
+                border: true,
+                autoStart: true,
+                autoLoadTapes: true
+            });
+            logToScreen("JSSpeccy 3 initialized successfully.");
+        } catch (e) {
+            logToScreen(`Engine Init Failed: ${e.message}`, true);
+            return;
+        }
+    } else {
+        logToScreen("ERROR: jsspeccy.js missing or corrupt.", true);
+        return;
+    }
+
+    // 3. Load ROM with Error Catching
+    setTimeout(() => {
+        logToScreen(`Fetching Tape: ${targetRom}...`);
+        try {
+            // Note: openUrl returns a Promise in JSSpeccy 3
+            speccyInstance.openUrl(targetRom).then(() => {
+                logToScreen("Tape loaded. Hiding boot terminal in 2 seconds...");
+                setTimeout(() => { bootScreen.style.display = 'none'; }, 2000);
+            }).catch(e => {
+                logToScreen(`ROM Fetch Failed: ${e.message}`, true);
+                logToScreen("Did you misspell the ROM name or is the file missing?", true);
+            });
+        } catch (e) {
+            logToScreen(`Exception during load: ${e.message}`, true);
+        }
+    }, 1500);
+
+    // 4. Input Mapping
     window.addEventListener("SPECCY_INPUT", (e) => {
+        if (!speccyInstance) return;
         const { key, state } = e.detail;
         const isDown = state === 'PRESSED';
-        const eventType = isDown ? 'keydown' : 'keyup';
-
-        // Map D-pad and Fire to default Sinclair keyboard controls (QAOP + Space)
-        const keyMap = {
-            'up': 'q',
-            'down': 'a',
-            'left': 'o',
-            'right': 'p',
-            'fire': ' '
-        };
         
+        const keyMap = { 'up': 'q', 'down': 'a', 'left': 'o', 'right': 'p', 'fire': ' ' };
         const mappedKey = keyMap[key];
+        
         if (mappedKey) {
-            window.dispatchEvent(new KeyboardEvent(eventType, { key: mappedKey, bubbles: true }));
+            window.dispatchEvent(new KeyboardEvent(isDown ? 'keydown' : 'keyup', { key: mappedKey, bubbles: true }));
         }
     });
 });
