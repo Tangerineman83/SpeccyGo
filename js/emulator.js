@@ -10,7 +10,7 @@ function bootSpeccyGo() {
     let bootScreen = document.getElementById("boot-screen");
     let bootLog = document.getElementById("boot-log");
 
-    // Defensive DOM check
+    // Defensive DOM check & creation
     if (!speccyContainer) {
         const oldCanvas = document.getElementById("speccy-canvas");
         speccyContainer = document.createElement("div");
@@ -19,6 +19,15 @@ function bootSpeccyGo() {
         if (oldCanvas && oldCanvas.parentNode) {
             oldCanvas.parentNode.replaceChild(speccyContainer, oldCanvas);
         }
+    }
+
+    // FIX 2: iOS / Safari Fullscreen Polyfill
+    // This stops JSSpeccy from crashing when it inevitably tries to bind fullscreen events
+    if (!speccyContainer.requestFullscreen) {
+        speccyContainer.requestFullscreen = speccyContainer.webkitRequestFullscreen || 
+                                            speccyContainer.mozRequestFullScreen || 
+                                            speccyContainer.msRequestFullscreen || 
+                                            function() { console.log("Fullscreen API not supported on this device."); };
     }
 
     // Logging helper
@@ -46,8 +55,6 @@ function bootSpeccyGo() {
         const targetRom = `${romBasePath}${urlParams.get('game') || defaultRom}`;
 
         if (typeof JSSpeccy !== 'undefined') {
-            
-            // FIX: Removed the 'new' keyword. JSSpeccy 3 is a factory function!
             speccyInstance = JSSpeccy(speccyContainer, {
                 machine: 48, 
                 border: true,
@@ -55,23 +62,26 @@ function bootSpeccyGo() {
                 autoLoadTapes: true
             });
             logToScreen("JSSpeccy 3 initialized successfully.");
-            
         } else {
             logToScreen("ERROR: jsspeccy.js missing or corrupt.", true);
             return;
         }
 
-        // Delay tape loading slightly to ensure Worker is ready
+        // FIX 1: Removed the Promise (.then) chain from openUrl
         setTimeout(() => {
             logToScreen(`Fetching Tape: ${targetRom}...`);
             if (speccyInstance.openUrl) {
-                speccyInstance.openUrl(targetRom).then(() => {
+                try {
+                    // Call it synchronously
+                    speccyInstance.openUrl(targetRom);
                     logToScreen("Tape loaded. Hiding boot terminal in 2 seconds...");
+                    
+                    // Clear the boot screen to reveal the game
                     setTimeout(() => { if (bootScreen) bootScreen.style.display = 'none'; }, 2000);
-                }).catch(e => {
+                } catch (e) {
                     logToScreen(`ROM Fetch Failed: ${e.message}`, true);
                     logToScreen("Check if the ROM name is correct and server is running.", true);
-                });
+                }
             } else {
                 logToScreen("ERROR: Engine does not support openUrl.", true);
             }
@@ -95,7 +105,6 @@ function bootSpeccyGo() {
     }
 }
 
-// Ensure the DOM is fully loaded before executing
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootSpeccyGo);
 } else {
