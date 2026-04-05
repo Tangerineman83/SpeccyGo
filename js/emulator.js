@@ -19,19 +19,35 @@ function bootSpeccyGo() {
         }
     }
 
-    try {
-        if (window.location.protocol === 'file:') {
-            logToScreen("FATAL ERROR: Running via file:/// protocol. Safari blocks WASM.", true);
-            return;
-        }
+    if (window.location.protocol === 'file:') {
+        logToScreen("FATAL ERROR: Running via file:/// protocol. Safari blocks WASM.", true);
+        return;
+    }
 
-        logToScreen("Environment OK. Booting Headless Z80 Engine...");
+    logToScreen("BIOS Loaded. System Diagnostics OK.");
+    logToScreen("Z80 Engine ready in standby mode.");
 
-        let speccyInstance = null;
-        const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
+    // Add the interactive Tap-to-Start UI
+    const startPrompt = document.createElement("div");
+    startPrompt.innerHTML = "INSERT COIN<br><br>(TAP SCREEN TO BOOT)";
+    startPrompt.className = "blink-prompt";
+    bootLog.appendChild(startPrompt);
 
-        if (typeof JSSpeccy !== 'undefined') {
-            
+    let speccyInstance = null;
+    const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
+
+    // THE FIX: Defer engine creation until Safari registers a user gesture
+    function startEngine() {
+        // Prevent double-firing
+        document.body.removeEventListener("touchstart", startEngine);
+        document.body.removeEventListener("click", startEngine);
+
+        startPrompt.innerHTML = "BOOTING...";
+        startPrompt.style.animation = "none";
+        startPrompt.style.color = "#0f0";
+
+        try {
+            // Because this is inside a click/touch event, Safari grants full AutoPlay and WASM rights
             speccyInstance = JSSpeccy(speccyContainer, {
                 machine: 48, 
                 border: true,
@@ -41,32 +57,35 @@ function bootSpeccyGo() {
                 openUrl: targetRom       
             });
             
-            logToScreen(`JSSpeccy 3 started. Loading ${targetRom}...`);
-            logToScreen(`If it stalls here, your local server app is blocking the WASM file.`);
+            logToScreen(`Mounting ${targetRom}...`);
             
-            // Fade out the boot screen to reveal the game canvas
+            // Fade out the boot screen to reveal the running game
             setTimeout(() => { 
-                if (bootScreen) bootScreen.style.display = 'none'; 
-            }, 3000);
+                if (bootScreen) {
+                    bootScreen.style.transition = "opacity 0.5s ease";
+                    bootScreen.style.opacity = "0";
+                    setTimeout(() => bootScreen.style.display = 'none', 500);
+                }
+            }, 1500);
 
-        } else {
-            logToScreen("FATAL ERROR: jsspeccy.js missing. Did you move it to the root?", true);
-            return;
+        } catch (err) {
+            logToScreen(`Crash: ${err.message}`, true);
         }
-
-        // Input Mapping
-        window.addEventListener("SPECCY_INPUT", (e) => {
-            if (!speccyInstance) return;
-            const { key, state } = e.detail;
-            const keyMap = { 'up': 'q', 'down': 'a', 'left': 'o', 'right': 'p', 'fire': ' ' };
-            if (keyMap[key]) {
-                window.dispatchEvent(new KeyboardEvent(state === 'PRESSED' ? 'keydown' : 'keyup', { key: keyMap[key], bubbles: true }));
-            }
-        });
-
-    } catch (err) {
-        logToScreen(`Boot Sequence Failed: ${err.message}`, true);
     }
+
+    // Listen for the first physical gesture to unlock the browser restrictions
+    document.body.addEventListener("touchstart", startEngine, { once: true });
+    document.body.addEventListener("click", startEngine, { once: true });
+
+    // Input Mapping
+    window.addEventListener("SPECCY_INPUT", (e) => {
+        if (!speccyInstance) return;
+        const { key, state } = e.detail;
+        const keyMap = { 'up': 'q', 'down': 'a', 'left': 'o', 'right': 'p', 'fire': ' ' };
+        if (keyMap[key]) {
+            window.dispatchEvent(new KeyboardEvent(state === 'PRESSED' ? 'keydown' : 'keyup', { key: keyMap[key], bubbles: true }));
+        }
+    });
 }
 
 if (document.readyState === "loading") {
