@@ -2,63 +2,62 @@ document.addEventListener("DOMContentLoaded", () => {
     const controller = document.getElementById("floating-controller");
     const toggleBtn = document.getElementById("btn-toggle-input");
     let isTouchActive = false;
-    let inputMode = "Joystick"; // Default
+    let inputMode = "Joystick"; 
 
-    // Attempt to lock orientation natively (Works on Android Chrome)
-    async function lockOrientation() {
-        try {
-            if (screen.orientation && screen.orientation.lock) {
-                await screen.orientation.lock("landscape");
-            }
-        } catch (err) {
-            console.log("Orientation lock not supported or denied.");
+    // Auto-Orientation Lock for supported devices
+    document.body.addEventListener('click', async () => {
+        if (screen.orientation && screen.orientation.lock) {
+            try { await screen.orientation.lock("landscape"); } catch (e) {}
         }
-    }
-    
-    // Call on first interaction (browsers require user gesture for locks)
-    document.body.addEventListener('click', lockOrientation, { once: true });
+    }, { once: true });
 
     // --- Smart Controller Auto-Detection ---
-    
-    // If the user touches the screen, show the floating controls
     window.addEventListener("touchstart", () => {
         if (!isTouchActive) {
             isTouchActive = true;
             controller.classList.remove("hidden");
-            console.log("Touch detected: Controls visible");
         }
     });
 
-    // If the user presses a physical key, hide the floating controls
-    window.addEventListener("keydown", (e) => {
-        // Ignore the toggle button clicks firing as keydowns
+    window.addEventListener("keydown", () => {
         if (isTouchActive) {
             isTouchActive = false;
             controller.classList.add("hidden");
-            console.log("Keyboard detected: Controls hidden");
         }
     });
 
     // --- Input Mode Toggle ---
+    toggleBtn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        inputMode = inputMode === "Joystick" ? "Keyboard" : "Joystick";
+        toggleBtn.innerText = `Mode: ${inputMode}`;
+    });
+    
     toggleBtn.addEventListener("click", () => {
         inputMode = inputMode === "Joystick" ? "Keyboard" : "Joystick";
         toggleBtn.innerText = `Mode: ${inputMode}`;
-        console.log(`Input mapping switched to: ${inputMode}`);
-        // In the next phase, we will broadcast this state to the emulator core
     });
 
-    // --- Virtual Button Listeners (Mocking output for now) ---
+    // --- Virtual Button Broadcaster ---
     const buttons = document.querySelectorAll('.ctrl-btn');
+    
+    const dispatchInput = (keyId, state) => {
+        window.dispatchEvent(new CustomEvent("SPECCY_INPUT", {
+            detail: { key: keyId, state: state, mode: inputMode }
+        }));
+    };
+
     buttons.forEach(btn => {
+        const keyId = btn.getAttribute('data-key');
+        
         btn.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Stop mouse emulation
-            console.log(`${btn.id} PRESSED in ${inputMode} mode`);
+            e.preventDefault();
+            dispatchInput(keyId, 'PRESSED');
         });
         
         btn.addEventListener('touchend', (e) => {
             e.preventDefault();
-            console.log(`${btn.id} RELEASED`);
+            dispatchInput(keyId, 'RELEASED');
         });
     });
 });
-
