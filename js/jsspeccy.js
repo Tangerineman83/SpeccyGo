@@ -1800,4 +1800,680 @@ JSSpeccy.SoundBackend = function() {
 	return self;
 
 }
+// build/roms.js
+if (typeof JSSpeccy === 'undefined') JSSpeccy = {};
+JSSpeccy.roms = {
+    "48k": new Uint8Array([/* 16384 bytes of ROM data */]),
+    "128k_0": new Uint8Array([/* 16384 bytes of ROM data */]),
+    "128k_1": new Uint8Array([/* 16384 bytes of ROM data */])
+};
+
+// build/autoloaders.js
+if (typeof JSSpeccy === 'undefined') JSSpeccy = {};
+JSSpeccy.autoloaders = {
+    "48k": { "buffer": new Uint8Array([/* autoloader snapshot data */]) },
+    "128k": { "buffer": new Uint8Array([/* autoloader snapshot data */]) }
+};
+
+JSSpeccy.SnaFile = function(data) {
+	var mode128 = false, snapshot = null, len = data.byteLength, sna;
+
+	switch (len) {
+		case 131103:
+		case 147487:
+			mode128 = true;
+		case 49179:
+			sna = new DataView(data, 0, mode128 ? 49182 : len);
+			snapshot = {
+				model: (mode128
+					? JSSpeccy.Spectrum.MODEL_128K
+					: JSSpeccy.Spectrum.MODEL_48K),
+				registers: {},
+				ulaState: {},
+			/* construct byte arrays of length 0x4000 at the appropriate offsets into the data stream */
+				memoryPages: {
+					5: new Uint8Array(data, 0x0000 + 27, 0x4000),
+					2: new Uint8Array(data, 0x4000 + 27, 0x4000)
+				}
+			};
+
+			if (mode128) {
+				var page = (sna.getUint8(49181) & 7);
+				snapshot.memoryPages[page] = new Uint8Array(data, 0x8000 + 27, 0x4000);
+
+				for (var i = 0, ptr = 49183; i < 8; i++) {
+					if (typeof snapshot.memoryPages[i] === 'undefined') {
+						snapshot.memoryPages[i] = new Uint8Array(data, ptr, 0x4000);
+						ptr += 0x4000;
+					}
+				}
+			}
+			else
+				snapshot.memoryPages[0] = new Uint8Array(data, 0x8000 + 27, 0x4000);
+
+			snapshot.registers['IR'] = (sna.getUint8(0) << 8) | sna.getUint8(20);
+			snapshot.registers['HL_'] = sna.getUint16(1, true);
+			snapshot.registers['DE_'] = sna.getUint16(3, true);
+			snapshot.registers['BC_'] = sna.getUint16(5, true);
+			snapshot.registers['AF_'] = sna.getUint16(7, true);
+			snapshot.registers['HL'] = sna.getUint16(9, true);
+			snapshot.registers['DE'] = sna.getUint16(11, true);
+			snapshot.registers['BC'] = sna.getUint16(13, true);
+			snapshot.registers['IY'] = sna.getUint16(15, true);
+			snapshot.registers['IX'] = sna.getUint16(17, true);
+			snapshot.registers['iff1'] = snapshot.registers['iff2'] = (sna.getUint8(19) & 0x04) >> 2;
+			snapshot.registers['AF'] = sna.getUint16(21, true);
+
+			if (mode128) {
+				snapshot.registers['SP'] = sna.getUint16(23, true);
+				snapshot.registers['PC'] = sna.getUint16(49179, true);
+				snapshot.ulaState.pagingFlags = sna.getUint8(49181);
+			}
+			else {
+				/* peek memory at SP to get proper value of PC */
+				var sp = sna.getUint16(23, true);
+				var l = sna.getUint8(sp - 16384 + 27);
+				sp = (sp + 1) & 0xffff;
+				var h = sna.getUint8(sp - 16384 + 27);
+				sp = (sp + 1) & 0xffff;
+				snapshot.registers['PC'] = (h << 8) | l;
+				snapshot.registers['SP'] = sp;
+			}
+
+			snapshot.registers['im'] = sna.getUint8(25);
+			snapshot.ulaState.borderColour = sna.getUint8(26);
+			break;
+
+		default:
+			throw "Cannot handle SNA snapshots of length " + len;
+	}
+
+	return snapshot;
+}
+JSSpeccy.Spectrum = function(opts) {
+	var self = {};
+
+	model = opts.model || JSSpeccy.Spectrum.MODEL_128K;
+
+	var viewport = opts.viewport;
+	var keyboard = opts.keyboard;
+	var controller = opts.controller;
+	var soundBackend = opts.soundBackend;
+
+	var memory = JSSpeccy.Memory({
+		model: model
+	});
+
+	var display = JSSpeccy.Display({
+		viewport: viewport,
+		memory: memory,
+		model: model,
+		borderEnabled: opts.borderEnabled,
+		settings: {
+			'checkerboardFilter': controller.settings.checkerboardFilter
+		}
+	});
+
+	var sound = JSSpeccy.SoundGenerator({
+		model: model,
+		soundBackend: soundBackend
+	});
+
+	var ioBus = JSSpeccy.IOBus({
+		keyboard: keyboard,
+		display: display,
+		memory: memory,
+		sound: sound,
+		contentionTable: model.contentionTable
+	});
+
+	var processor = JSSpeccy.Z80({
+		memory: memory,
+		ioBus: ioBus,
+		display: display
+	});
+
+	/* internal state to allow picking up mid-frame (e.g. when loading from a snapshot) */
+	var startNextFrameWithInterrupt = true;
+
+	self.runFrame = function() {
+		display.startFrame();
+		if (startNextFrameWithInterrupt) {
+			processor.requestInterrupt();
+		}
+		processor.runFrame(model.frameLength);
+		display.endFrame();
+		sound.endFrame();
+		processor.setTstates(processor.getTstates() - model.frameLength);
+		startNextFrameWithInterrupt = true;
+	};
+	self.reset = function() {
+		processor.reset();
+		memory.reset();
+		sound.reset();
+	};
+
+	self.loadSnapshot = function(snapshot) {
+		memory.loadFromSnapshot(snapshot.memoryPages);
+		if ('pagingFlags' in snapshot.ulaState) {
+			memory.setPaging(snapshot.ulaState.pagingFlags);
+		}
+		processor.loadFromSnapshot(snapshot.registers);
+		display.setBorder(snapshot.ulaState.borderColour);
+		if ('tstates' in snapshot) {
+			processor.setTstates(snapshot.tstates);
+			startNextFrameWithInterrupt = false;
+		}
+	};
+
+	self.drawFullScreen = function() {
+		display.drawFullScreen();
+	};
+
+	JSSpeccy.traps.tapeLoad = function() {
+		if (!controller.currentTape) return true; /* no current tape, so return from trap;
+			resume the trapped instruction */
+		var block = controller.currentTape.getNextLoadableBlock();
+		if (!block) return true; /* no loadable blocks on tape, so return from trap */
+
+		var success = true;
+
+		var expectedBlockType = processor.getA_();
+		var startAddress = processor.getIX();
+		var requestedLength = processor.getDE();
+
+		var actualBlockType = block[0];
+		if (expectedBlockType != actualBlockType) {
+			success = false;
+		} else {
+			/* block type is the one we're looking for */
+			if (processor.getCarry_()) {
+				/* perform a LOAD */
+				var offset = 0;
+				var checksum = actualBlockType;
+
+				while (offset < requestedLength) {
+					var loadedByte = block[offset+1];
+					if (typeof(loadedByte) == 'undefined') {
+						/* have run out of bytes to load - indicate error */
+						success = false;
+						break;
+					}
+					memory.write((startAddress + offset) & 0xffff, loadedByte);
+					checksum ^= loadedByte;
+					offset++;
+				}
+
+				/* if the full quota of bytes has been loaded, compare checksums now */
+				var expectedChecksum = block[offset+1];
+				success = (checksum === expectedChecksum);
+			} else {
+				/* perform a VERIFY */
+				success = true; /* for now, just report success. TODO: do VERIFY properly... */
+			}
+		}
+
+		processor.setCarry(success); /* set or reset carry flag to indicate success or failure respectively */
+		processor.setPC(0x05e2); /* address at which to exit tape trap */
+		return false; /* cancel execution of the opcode where this trap happened */
+	};
+
+	return self;
+};
+
+
+JSSpeccy.buildContentionTables = function(model) {
+	function buildTable(pattern) {
+		var table = new Uint8Array(model.frameLength);
+		for (var line = 0; line < 192; line++) {
+			var lineStartTime = model.tstatesUntilOrigin + (line * model.tstatesPerScanline);
+			for (var x = 0; x < 128; x++) {
+				table[lineStartTime + x] = pattern[x % 8];
+			}
+		}
+		return table;
+	}
+
+	model.contentionTable = buildTable(model.contentionPattern);
+	model.noContentionTable = buildTable([0,0,0,0,0,0,0,0]);
+};
+
+JSSpeccy.Spectrum.MODEL_48K = {
+	id: '48k',
+	name: 'Spectrum 48K',
+	tapeAutoloader: 'tape_48.z80',
+	tstatesUntilOrigin: 14336,
+	tstatesPerScanline: 224,
+	frameLength: 69888,
+	clockSpeed: 3500000,
+	contentionPattern: [6,5,4,3,2,1,0,0]
+};
+JSSpeccy.buildContentionTables(JSSpeccy.Spectrum.MODEL_48K);
+
+JSSpeccy.Spectrum.MODEL_128K = {
+	id: '128k',
+	name: 'Spectrum 128K',
+	tapeAutoloader: 'tape_128.z80',
+	tstatesUntilOrigin: 14362,
+	tstatesPerScanline: 228,
+	frameLength: 70908,
+	clockSpeed: 3546900,
+	contentionPattern: [6,5,4,3,2,1,0,0]
+};
+JSSpeccy.buildContentionTables(JSSpeccy.Spectrum.MODEL_128K);
+
+JSSpeccy.Spectrum.MODELS = [
+	JSSpeccy.Spectrum.MODEL_48K,
+	JSSpeccy.Spectrum.MODEL_128K
+];
+
+JSSpeccy.TapFile = function(data) {
+	var self = {};
+
+	var i = 0;
+	var blocks = [];
+	var tap = new DataView(data);
+
+	while ((i+1) < data.byteLength) {
+		var blockLength = tap.getUint16(i, true);
+		i += 2;
+		blocks.push(new Uint8Array(data, i, blockLength));
+		i += blockLength;
+	}
+
+	var nextBlockIndex = 0;
+	self.getNextLoadableBlock = function() {
+		if (blocks.length === 0) return null;
+		var block = blocks[nextBlockIndex];
+		nextBlockIndex = (nextBlockIndex + 1) % blocks.length;
+		return block;
+	};
+
+	return self;
+};
+
+JSSpeccy.TapFile.isValid = function(data) {
+	/* test whether the given ArrayBuffer is a valid TAP file, i.e. EOF is consistent with the
+	block lengths we read from the file */
+	var pos = 0;
+	var tap = new DataView(data);
+
+	while (pos < data.byteLength) {
+		if (pos + 1 >= data.byteLength) return false; /* EOF in the middle of a length word */
+		var blockLength = tap.getUint16(pos, true);
+		pos += blockLength + 2;
+	}
+
+	return (pos == data.byteLength); /* file is a valid TAP if pos is exactly at EOF and no further */
+};
+
+JSSpeccy.TzxFile = function(data) {
+	var self = {};
+
+	var blocks = [];
+	var tzx = new DataView(data);
+
+	var signature = "ZXTape!\x1A";
+	for (var i = 0; i < signature.length; i++) {
+		if (signature.charCodeAt(i) != tzx.getUint8(i)) {
+			alert("Not a valid TZX file");
+			return null;
+		}
+	}
+
+	var offset = 0x0a;
+
+	while (offset < data.byteLength) {
+		var blockType = tzx.getUint8(offset);
+		offset++;
+		switch (blockType) {
+			case 0x10:
+				var pause = tzx.getUint16(offset, true);
+				offset += 2;
+				var dataLength = tzx.getUint16(offset, true);
+				offset += 2;
+				blocks.push({
+					'type': 'StandardSpeedData',
+					'pause': pause,
+					'data': new Uint8Array(data, offset, dataLength)
+				});
+				offset += dataLength;
+				break;
+			case 0x11:
+				var pilotPulseLength = tzx.getUint16(offset, true); offset += 2;
+				var syncPulse1Length = tzx.getUint16(offset, true); offset += 2;
+				var syncPulse2Length = tzx.getUint16(offset, true); offset += 2;
+				var zeroBitLength = tzx.getUint16(offset, true); offset += 2;
+				var oneBitLength = tzx.getUint16(offset, true); offset += 2;
+				var pilotPulseCount = tzx.getUint16(offset, true); offset += 2;
+				var lastByteMask = tzx.getUint8(offset); offset += 1;
+				var pause = tzx.getUint16(offset, true); offset += 2;
+				var dataLength = tzx.getUint16(offset, true) | (tzx.getUint8(offset+2) << 16); offset += 3;
+				blocks.push({
+					'type': 'TurboSpeedData',
+					'pilotPulseLength': pilotPulseLength,
+					'syncPulse1Length': syncPulse1Length,
+					'syncPulse2Length': syncPulse2Length,
+					'zeroBitLength': zeroBitLength,
+					'oneBitLength': oneBitLength,
+					'pilotPulseCount': pilotPulseCount,
+					'lastByteMask': lastByteMask,
+					'pause': pause,
+					'data': new Uint8Array(data, offset, dataLength)
+				});
+				offset += dataLength;
+				break;
+			case 0x12:
+				var pulseLength = tzx.getUint16(offset, true); offset += 2;
+				var pulseCount = tzx.getUint16(offset, true); offset += 2;
+				blocks.push({
+					'type': 'PureTone',
+					'pulseLength': pulseLength,
+					'pulseCount': pulseCount
+				});
+				break;
+			case 0x13:
+				var pulseCount = tzx.getUint8(offset); offset += 1;
+				blocks.push({
+					'type': 'PulseSequence',
+					'pulseLengths': new Uint16Array(data, offset, pulseCount)
+				});
+				offset += (pulseCount * 2);
+				break;
+			case 0x14:
+				var zeroBitLength = tzx.getUint16(offset, true); offset += 2;
+				var oneBitLength = tzx.getUint16(offset, true); offset += 2;
+				var lastByteMask = tzx.getUint8(offset); offset += 1;
+				var pause = tzx.getUint16(offset, true); offset += 2;
+				var dataLength = tzx.getUint16(offset, true) | (tzx.getUint8(offset+2) << 16); offset += 3;
+				blocks.push({
+					'type': 'PureData',
+					'zeroBitLength': zeroBitLength,
+					'oneBitLength': oneBitLength,
+					'lastByteMask': lastByteMask,
+					'pause': pause,
+					'data': new Uint8Array(data, offset, dataLength)
+				});
+				offset += dataLength;
+				break;
+			case 0x15:
+				var tstatesPerSample = tzx.getUint16(offset, true); offset += 2;
+				var pause = tzx.getUint16(offset, true); offset += 2;
+				var lastByteMask = tzx.getUint8(offset); offset += 1;
+				var dataLength = tzx.getUint16(offset, true) | (tzx.getUint8(offset+2) << 16); offset += 3;
+				blocks.push({
+					'type': 'DirectRecording',
+					'tstatesPerSample': tstatesPerSample,
+					'lastByteMask': lastByteMask,
+					'pause': pause,
+					'data': new Uint8Array(data, offset, dataLength)
+				});
+				offset += dataLength;
+				break;
+			case 0x20:
+				var pause = tzx.getUint16(offset, true); offset += 2;
+				blocks.push({
+					'type': 'Pause',
+					'pause': pause
+				});
+				break;
+			case 0x21:
+				var nameLength = tzx.getUint8(offset); offset += 1;
+				var nameBytes = new Uint8Array(data, offset, nameLength);
+				offset += nameLength;
+				var name = String.fromCharCode.apply(null, nameBytes);
+				blocks.push({
+					'type': 'GroupStart',
+					'name': name
+				});
+				break;
+			case 0x22:
+				blocks.push({
+					'type': 'GroupEnd'
+				});
+				break;
+			case 0x23:
+				var jumpOffset = tzx.getUint16(offset, true); offset += 2;
+				blocks.push({
+					'type': 'JumpToBlock',
+					'offset': jumpOffset
+				});
+				break;
+			case 0x24:
+				var repeatCount = tzx.getUint16(offset, true); offset += 2;
+				blocks.push({
+					'type': 'LoopStart',
+					'repeatCount': repeatCount
+				});
+				break;
+			case 0x25:
+				blocks.push({
+					'type': 'LoopEnd'
+				});
+				break;
+			case 0x26:
+				var callCount = tzx.getUint16(offset, true); offset += 2;
+				blocks.push({
+					'type': 'CallSequence',
+					'offsets': new Uint16Array(data, offset, callCount)
+				});
+				offset += (callCount * 2);
+				break;
+			case 0x27:
+				blocks.push({
+					'type': 'ReturnFromSequence'
+				});
+				break;
+			case 0x28:
+				var blockLength = tzx.getUint16(offset, true); offset += 2;
+				/* This is a silly block. Don't bother parsing it further. */
+				blocks.push({
+					'type': 'Select',
+					'data': new Uint8Array(data, offset, blockLength)
+				});
+				offset += blockLength;
+				break;
+			case 0x30:
+				var textLength = tzx.getUint8(offset); offset += 1;
+				var textBytes = new Uint8Array(data, offset, textLength);
+				offset += textLength;
+				var text = String.fromCharCode.apply(null, textBytes);
+				blocks.push({
+					'type': 'TextDescription',
+					'text': text
+				});
+				break;
+			case 0x31:
+				var displayTime = tzx.getUint8(offset); offset += 1;
+				var textLength = tzx.getUint8(offset); offset += 1;
+				var textBytes = new Uint8Array(data, offset, textLength);
+				offset += textLength;
+				var text = String.fromCharCode.apply(null, textBytes);
+				blocks.push({
+					'type': 'MessageBlock',
+					'displayTime': displayTime,
+					'text': text
+				});
+				break;
+			case 0x32:
+				var blockLength = tzx.getUint16(offset, true); offset += 2;
+				blocks.push({
+					'type': 'ArchiveInfo',
+					'data': new Uint8Array(data, offset, blockLength)
+				});
+				offset += blockLength;
+				break;
+			case 0x33:
+				var blockLength = tzx.getUint8(offset) * 3; offset += 1;
+				blocks.push({
+					'type': 'HardwareType',
+					'data': new Uint8Array(data, offset, blockLength)
+				});
+				offset += blockLength;
+				break;
+			case 0x35:
+				var identifierBytes = new Uint8Array(data, offset, 10);
+				offset += 10;
+				var identifier = String.fromCharCode.apply(null, identifierBytes);
+				var dataLength = tzx.getUint32(offset, true);
+				blocks.push({
+					'type': 'CustomInfo',
+					'identifier': identifier,
+					'data': new Uint8Array(data, offset, dataLength)
+				});
+				offset += dataLength;
+				break;
+			case 0x5A:
+				offset += 9;
+				blocks.push({
+					'type': 'Glue'
+				});
+				break;
+			default:
+				/* follow extension rule: next 4 bytes = length of block */
+				var blockLength = tzx.getUint32(offset, true);
+				offset += 4;
+				blocks.push({
+					'type': 'unknown',
+					'data': new Uint8Array(data, offset, blockLength)
+				});
+				offset += blockLength;
+		}
+	}
+
+	var nextBlockIndex = 0;
+	var loopToBlockIndex;
+	var repeatCount;
+	var callStack = [];
+
+	self.getNextMeaningfulBlock = function() {
+		var startedAtZero = (nextBlockIndex === 0);
+		while (true) {
+			if (nextBlockIndex >= blocks.length) {
+				if (startedAtZero) return null; /* have looped around; quit now */
+				nextBlockIndex = 0;
+				startedAtZero = true;
+			}
+			var block = blocks[nextBlockIndex];
+			switch (block.type) {
+				case 'StandardSpeedData':
+				case 'TurboSpeedData':
+				case 'PureTone':
+				case 'PulseSequence':
+				case 'PureData':
+				case 'DirectRecording':
+				case 'Pause':
+					/* found a meaningful block */
+					nextBlockIndex++;
+					return block;
+				case 'JumpToBlock':
+					nextBlockIndex += block.offset;
+					break;
+				case 'LoopStart':
+					loopToBlockIndex = nextBlockIndex + 1;
+					repeatCount = block.repeatCount;
+					nextBlockIndex++;
+					break;
+				case 'LoopEnd':
+					repeatCount--;
+					if (repeatCount > 0) {
+						nextBlockIndex = loopToBlockIndex;
+					} else {
+						nextBlockIndex++;
+					}
+					break;
+				case 'CallSequence':
+					/* push the future destinations (where to go on reaching a ReturnFromSequence block)
+						onto the call stack in reverse order, starting with the block immediately
+						after the CallSequence (which we go to when leaving the sequence) */
+					callStack.unshift(nextBlockIndex+1);
+					for (var i = block.offsets.length - 1; i >= 0; i--) {
+						callStack.unshift(nextBlockIndex + block.offsets[i]);
+					}
+					/* now visit the first destination on the list */
+					nextBlockIndex = callStack.shift();
+					break;
+				case 'ReturnFromSequence':
+					nextBlockIndex = callStack.shift();
+					break;
+				default:
+					/* not one of the types we care about; skip past it */
+					nextBlockIndex++;
+			}
+		}
+	};
+
+	self.getNextLoadableBlock = function() {
+		while (true) {
+			var block = self.getNextMeaningfulBlock();
+			if (!block) return null;
+			if (block.type == 'StandardSpeedData' || block.type == 'TurboSpeedData') {
+				return block.data;
+			}
+			/* FIXME: avoid infinite loop if the TZX file consists only of meaningful but non-loadable blocks */
+		}
+	};
+
+	return self;
+};
+
+JSSpeccy.Viewport = function(opts) {
+	var self = {};
+	var container = opts.container;
+	var scaleFactor = opts.scaleFactor || 2;
+
+	var positioner = document.createElement('div');
+	container.appendChild(positioner);
+	positioner.style.position = 'relative';
+
+	self.canvas = document.createElement('canvas');
+	positioner.appendChild(self.canvas);
+
+	var statusIcon = document.createElement('div');
+	positioner.appendChild(statusIcon);
+	statusIcon.style.position = 'absolute';
+	statusIcon.style.width = '64px';
+	statusIcon.style.height = '64px';
+	statusIcon.style.backgroundColor = 'rgba(127, 127, 127, 0.7)';
+	statusIcon.style.borderRadius = '4px';
+	statusIcon.style.backgroundPosition = 'center';
+	statusIcon.style.backgroundRepeat = 'no-repeat';
+	statusIcon.style.display = 'none';
+	statusIcon.style.cursor = 'inherit';
+
+	var currentIcon = 'none';
+	self.showIcon = function(icon) {
+		switch (icon) {
+			case 'loading':
+				statusIcon.style.display = 'block';
+				statusIcon.style.backgroundImage = 'url(data:image/gif;base64,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)';
+				statusIcon.style.cursor = 'inherit';
+				break;
+			case 'play':
+				statusIcon.style.display = 'block';
+				statusIcon.style.backgroundImage = 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAclBMVEX///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8GMOiGAAAAJXRSTlMAeAIBJwX5egTIKvd0LMYl9W/AIfRpzrsf8WO3G+5fsRjtWKwWm6Sr4gAAAIBJREFUeF6l01sSgjAMhWEs3kBtFVRQ0NbLv/8tOm4g5yF5/mYyuZzqX8tVZdfiehCA9WZrA2haAdjtgw0gJgE4noINoOsF4HypbQDDKAC3e20DmGYBeDwFgFwE4PUWAD5fCVwtcnGNOc2uVQ+j69xd73q5mFxv37SO6Inwivj/AIKqMd+eZ3xLAAAAAElFTkSuQmCC)';
+				statusIcon.style.cursor = 'pointer';
+				break;
+			default:
+				statusIcon.style.display = 'none';
+		}
+	};
+	if (opts.onClickIcon) {
+		statusIcon.onclick = opts.onClickIcon;
+	}
+
+	self.setResolution = function(width, height) {
+		container.style.width = width * scaleFactor + 'px';
+		
+		self.canvas.width = width;
+		self.canvas.height = height;
+		
+		self.canvas.style.width = width * scaleFactor + 'px';
+		self.canvas.style.height = height * scaleFactor + 'px';
+		statusIcon.style.top = (height * scaleFactor / 2 - 32) + 'px';
+		statusIcon.style.left = (width * scaleFactor / 2 - 32) + 'px';
+	};
+
+	return self;
+};
 
