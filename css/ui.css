@@ -1,29 +1,39 @@
-/* Replace the old #speccy-canvas block with these */
-
+/* --- NATIVE FULLSCREEN INTEGRATION --- */
 #speccy-container {
-    width: 100%;
-    max-width: 800px;
-    height: auto;
-    aspect-ratio: 4/3;
-    border: 2px solid #333;
-    background: #000;
-    position: relative;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
     z-index: 1;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Target the canvas injected by JSSpeccy */
+#speccy-container canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Keeps the 4:3 ratio without stretching */
+    image-rendering: pixelated; /* Keeps pixels sharp */
 }
 
 #boot-screen {
     position: absolute;
-    width: 100%;
-    max-width: 800px;
-    aspect-ratio: 4/3;
+    width: 100vw;
+    height: 100vh;
     background: #000;
-    color: #0f0; /* Terminal green */
+    color: #0f0; 
     font-family: monospace;
     font-size: 14px;
-    padding: 20px;
+    padding: 40px;
     box-sizing: border-box;
     z-index: 10;
-    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
 }
 
 .error-text {
