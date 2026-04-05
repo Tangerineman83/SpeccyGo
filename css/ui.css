@@ -40,3 +40,20 @@
     color: #ff3333;
     font-weight: bold;
 }
+
+/* --- TAP TO START PROMPT --- */
+.blink-prompt {
+    color: #fff;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 40px;
+    width: 100%;
+    animation: blinker 1.2s linear infinite;
+    cursor: pointer;
+}
+
+@keyframes blinker {
+    50% { opacity: 0; }
+}
+
