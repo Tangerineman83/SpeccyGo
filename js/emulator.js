@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Prepare the DOM for JSSpeccy 3 (It requires a container div, not a canvas)
+    // 1. Prepare the DOM for JSSpeccy 3
     const oldCanvas = document.getElementById("speccy-canvas");
     const speccyContainer = document.createElement("div");
     speccyContainer.id = "speccy-container";
@@ -12,38 +12,31 @@ document.addEventListener("DOMContentLoaded", () => {
     // Swap the canvas for the div without touching index.html
     oldCanvas.parentNode.replaceChild(speccyContainer, oldCanvas);
 
-    let speccyInstance = null;
-
-    // 2. Initialize the JSSpeccy 3 Core
-    if (typeof JSSpeccy !== 'undefined') {
-        speccyInstance = new JSSpeccy(speccyContainer, {
-            machine: 48, 
-            border: true
-        });
-        console.log("[SpeccyGo] JSSpeccy 3 Core Initialized.");
-    } else {
-        speccyContainer.innerHTML = "<p style='color:#00FF00; padding:20px; font-family:monospace;'>ERROR: Z80 Engine missing.<br><br>Please download jsspeccy-3.2.zip and place jsspeccy.js and jsspeccy.wasm in the js/ folder.</p>";
-        return;
-    }
-
-    // 3. Dynamic ROM Locator
+    // 2. Dynamic ROM Locator
     const defaultRom = "FastFood.tzx";
     const romBasePath = "assets/roms/";
     const urlParams = new URLSearchParams(window.location.search);
     const requestedGame = urlParams.get('game');
     const targetRom = requestedGame ? `${romBasePath}${requestedGame}` : `${romBasePath}${defaultRom}`;
 
-    // 4. Load the ROM using JSSpeccy 3's native URL fetcher
-    setTimeout(() => {
-        console.log(`[SpeccyGo] Tape inserting: ${targetRom}`);
-        try {
-            speccyInstance.openUrl(targetRom); 
-        } catch (e) {
-            console.error("ROM Load Failed. Are you running a local web server?", e);
-        }
-    }, 1000);
+    let speccyInstance = null;
 
-    // 5. Input Mapping (Synthesizing native keyboard events for JSSpeccy)
+    // 3. Initialize JSSpeccy 3 with Auto-Boot Flags
+    if (typeof JSSpeccy !== 'undefined') {
+        speccyInstance = new JSSpeccy(speccyContainer, {
+            machine: 48, 
+            border: true,
+            autoStart: true,         // Bypasses the hidden Play button
+            autoLoadTapes: true,     // Automatically executes LOAD ""
+            openUrl: targetRom       // Ingests the .tzx file on boot
+        });
+        console.log(`[SpeccyGo] JSSpeccy 3 Engine started. Loading: ${targetRom}`);
+    } else {
+        speccyContainer.innerHTML = "<p style='color:#00FF00; padding:20px; font-family:monospace;'>ERROR: Z80 Engine missing.<br><br>Please check jsspeccy.js.</p>";
+        return;
+    }
+
+    // 4. Input Mapping (Synthesizing native keyboard events)
     window.addEventListener("SPECCY_INPUT", (e) => {
         const { key, state } = e.detail;
         const isDown = state === 'PRESSED';
