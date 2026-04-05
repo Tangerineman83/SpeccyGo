@@ -4,44 +4,54 @@ document.addEventListener("DOMContentLoaded", () => {
     let audioUnlocked = false;
 
     // 1. Initialize the JSSpeccy Core
-    // Assuming JSSpeccy is loaded globally via the script tag in index.html
     if (typeof JSSpeccy !== 'undefined') {
         speccyInstance = new JSSpeccy({
             canvas: canvas,
-            machine: '48k', // Fast Food runs perfectly on 48k
-            zoom: 1,        // CSS handles our scaling
+            machine: '48k',
+            zoom: 1,
             border: true
         });
         console.log("[SpeccyGo] JSSpeccy Core Initialized.");
     } else {
-        console.error("[SpeccyGo] JSSpeccy core missing. Please ensure jsspeccy.js is loaded.");
+        console.error("[SpeccyGo] JSSpeccy core missing.");
         return;
     }
 
-    // 2. Fetch and Load the ROM (.tzx file)
+    // 2. Dynamic ROM Locator
+    const defaultRom = "FastFood.tzx";
+    const romBasePath = "assets/roms/";
+    
+    // Check the URL for a '?game=' parameter (e.g., mysite.com/?game=Pacman.tzx)
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedGame = urlParams.get('game');
+    
+    // Construct the final path, falling back to the default location if none requested
+    const targetRom = requestedGame ? `${romBasePath}${requestedGame}` : `${romBasePath}${defaultRom}`;
+
+    // 3. Fetch and Load the ROM
     async function loadGame(romUrl) {
         try {
             console.log(`[SpeccyGo] Fetching ROM from ${romUrl}...`);
             const response = await fetch(romUrl);
-            if (!response.ok) throw new Error("Network response was not ok");
+            if (!response.ok) throw new Error(`Network response was not ok for ${romUrl}`);
             
             const arrayBuffer = await response.arrayBuffer();
             const romData = new Uint8Array(arrayBuffer);
             
-            // Pass the byte array to the emulator
             speccyInstance.loadTape(romData);
-            console.log("[SpeccyGo] Tape loaded. Starting autoplay...");
+            console.log(`[SpeccyGo] ${romUrl} loaded. Starting autoplay...`);
             speccyInstance.tapePlay(); 
             
         } catch (error) {
             console.error("[SpeccyGo] Error loading ROM:", error);
+            // Optional: Draw an error message to the canvas or UI here
         }
     }
 
-    // Trigger the load
-    loadGame('assets/roms/FastFood.tzx');
+    // Trigger the load with our dynamically constructed path
+    loadGame(targetRom);
 
-    // 3. Audio Context Unlocker (Strict mobile browser policy)
+    // 4. Audio Context Unlocker
     window.addEventListener("touchstart", () => {
         if (!audioUnlocked && speccyInstance.audioContext) {
             speccyInstance.audioContext.resume().then(() => {
@@ -51,7 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }, { once: true });
 
-    // 4. Input Listener & Z80 Memory Injection
+    // 5. Input Listener & Z80 Memory Injection
     window.addEventListener("SPECCY_INPUT", (e) => {
         if (!speccyInstance) return;
         
@@ -59,11 +69,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const isPressed = state === 'PRESSED';
 
         if (mode === "Joystick") {
-            // Map directly to Kempston Joystick
-            // JSSpeccy usually accepts generic directional strings for Kempston
             speccyInstance.setJoystick('kempston', key, isPressed);
         } else {
-            // Map to default Sinclair keyboard equivalents
             const keyMap = {
                 'up': 'Q',
                 'down': 'A',
@@ -72,10 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 'fire': 'SPACE'
             };
             const speccyKey = keyMap[key];
-            if (speccyKey) {
-                speccyInstance.setKeyboard(speccyKey, isPressed);
-            }
+            if (speccyKey) speccyInstance.setKeyboard(speccyKey, isPressed);
         }
     });
 });
-
