@@ -1,53 +1,67 @@
 window.addEventListener("error", function(e) {
-    const log = document.getElementById("boot-log");
-    if (log) log.innerHTML += `<br><span style="color:#ff3333;">> SYSTEM HALT: ${e.message}</span>`;
+    logToScreen(`SYSTEM HALT: ${e.message}`, true);
 });
+
+// Trap asynchronous WebWorker crashes
+window.addEventListener("unhandledrejection", function(e) {
+    logToScreen(`ASYNC HALT: ${e.reason}`, true);
+});
+
+// Intercept network requests to catch silent 404s for the WASM file
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+    logToScreen(`NET: Requesting ${url.split('/').pop()}...`);
+    try {
+        const response = await originalFetch.apply(this, args);
+        if (!response.ok) logToScreen(`NET FAIL: HTTP ${response.status} on ${url}`, true);
+        return response;
+    } catch (e) {
+        logToScreen(`NET CRASH: ${e.message}`, true);
+        throw e;
+    }
+};
+
+let bootLog = null;
+function logToScreen(message, isError = false) {
+    console.log(message);
+    if (bootLog) {
+        bootLog.innerHTML += `<br><span style="color:${isError ? '#ff3333' : '#0f0'}">> ${message}</span>`;
+    }
+}
 
 function bootSpeccyGo() {
     let speccyContainer = document.getElementById("speccy-container");
     let bootScreen = document.getElementById("boot-screen");
-    let bootLog = document.getElementById("boot-log");
+    bootLog = document.getElementById("boot-log");
+
+    // Make the boot screen semi-transparent so we can see the canvas underneath
+    if (bootScreen) {
+        bootScreen.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
+        bootScreen.style.pointerEvents = "none"; 
+    }
 
     if (speccyContainer && !speccyContainer.requestFullscreen) {
         speccyContainer.requestFullscreen = speccyContainer.webkitRequestFullscreen || function(){};
     }
 
-    function logToScreen(message, isError = false) {
-        if (bootLog) {
-            bootLog.innerHTML += `<br><span style="color:${isError ? '#ff3333' : '#0f0'}">> ${message}</span>`;
-        }
-    }
-
     let speccyInstance = null;
 
     try {
-        logToScreen("Initializing Naked Z80 Engine (No ROM)...");
+        logToScreen("Initializing Naked Z80 Engine...");
 
-        // 1. Boot the engine completely empty
+        // Re-enabling the UI visually proves if the canvas renderer is working at all
         speccyInstance = JSSpeccy(speccyContainer, {
             machine: 48, 
             border: true,
-            uiEnabled: false,
-            autoStart: true 
+            uiEnabled: true, 
+            autoStart: false 
         });
 
-        logToScreen("Waiting for user tap to unlock iOS audio...");
+        logToScreen("Engine instantiated. Waiting for WASM to compile...");
         
-        // Hide our green boot terminal so you can click the grey JSSpeccy Play button
-        setTimeout(() => {
-            if (bootScreen) {
-                bootScreen.style.display = 'none';
-            }
-        }, 1500);
-
-        // 2. Listen for the tap, but DO NOT load a game.
-        speccyContainer.addEventListener("click", () => {
-            console.log("[SpeccyGo] Engine unlocked by user tap.");
-            // If the engine is healthy, the screen will turn white with the Sinclair logo.
-        });
-
     } catch (err) {
-        logToScreen(`Crash: ${err.message}`, true);
+        logToScreen(`SYNC CRASH: ${err.message}`, true);
     }
 }
 
