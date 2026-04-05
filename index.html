@@ -1,1 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZX Spectrum Web Player</title>
+    <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+
+    <div id="orientation-warning">
+        <p>Please rotate your device to landscape mode to play.</p>
+    </div>
+
+    <div id="game-container">
+        <div id="emulator-canvas-placeholder">Emulator Canvas Area</div>
+
+        <div id="floating-controller" class="hidden">
+            <div class="d-pad">
+                <button id="btn-up" class="ctrl-btn">U</button>
+                <div class="d-pad-middle">
+                    <button id="btn-left" class="ctrl-btn">L</button>
+                    <button id="btn-right" class="ctrl-btn">R</button>
+                </div>
+                <button id="btn-down" class="ctrl-btn">D</button>
+            </div>
+            <div class="action-buttons">
+                <button id="btn-fire" class="ctrl-btn action">FIRE</button>
+            </div>
+            
+            <div class="system-buttons">
+                <button id="btn-toggle-input">Mode: Joystick</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="input.js"></script>
+</body>
+</html>
 
