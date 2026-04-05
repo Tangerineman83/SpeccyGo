@@ -56,17 +56,31 @@ function bootSpeccyGo() {
             if (!window.romMounted) {
                 window.romMounted = true;
                 
-                // The engine is now unlocking. Wait a brief moment for the CPU to stabilize, then inject the tape.
+                // DIAGNOSTIC 1: Did the click actually register?
+                logToScreen("Play Button Clicked! Event listener active.", false);
+                bootScreen.style.display = 'flex'; // Force boot screen to stay visible
+                bootScreen.style.opacity = '1';
+                
+                logToScreen("Waiting 4 seconds for Z80 to reach BASIC prompt...");
+
+                // DIAGNOSTIC 2: Eliminate the CPU boot race condition
                 setTimeout(() => {
                     try {
+                        logToScreen(`Attempting to mount ${targetRom} now...`, false);
                         speccyInstance.openUrl(targetRom);
-                        console.log(`[SpeccyGo] Tape mounted: ${targetRom}`);
+                        
+                        setTimeout(() => {
+                            logToScreen("Tape command sent. Hiding boot screen.", false);
+                            bootScreen.style.display = 'none';
+                        }, 1000);
+                        
                     } catch (e) {
-                        console.error("[SpeccyGo] Tape mount failed:", e);
+                        logToScreen(`Tape mount failed: ${e.message}`, true);
                     }
-                }, 600);
+                }, 4000); // Massive 4 second delay
             }
-        });
+        }, { capture: true }); // 'capture: true' forces our listener to fire BEFORE JSSpeccy can swallow it
+
 
         // Input Mapping
         window.addEventListener("SPECCY_INPUT", (e) => {
