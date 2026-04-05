@@ -57,3 +57,14 @@
     50% { opacity: 0; }
 }
 
+#speccy-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain; 
+    image-rendering: pixelated; 
+    background: #000;
+    z-index: 1;
+}
+
