@@ -1,72 +1,82 @@
 window.addEventListener("error", function(e) {
-    logToScreen(`SYSTEM HALT: ${e.message}`, true);
+    const log = document.getElementById("boot-log");
+    if (log) log.innerHTML += `<br><span style="color:#ff3333;">> SYSTEM HALT: ${e.message}</span>`;
 });
 
-// Trap asynchronous WebWorker crashes
-window.addEventListener("unhandledrejection", function(e) {
-    logToScreen(`ASYNC HALT: ${e.reason}`, true);
-});
-
-// Intercept network requests to catch silent 404s for the WASM file
-const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-    const url = typeof args[0] === 'string' ? args[0] : args[0].url;
-    logToScreen(`NET: Requesting ${url.split('/').pop()}...`);
-    try {
-        const response = await originalFetch.apply(this, args);
-        if (!response.ok) logToScreen(`NET FAIL: HTTP ${response.status} on ${url}`, true);
-        return response;
-    } catch (e) {
-        logToScreen(`NET CRASH: ${e.message}`, true);
-        throw e;
-    }
-};
-
-let bootLog = null;
-function logToScreen(message, isError = false) {
-    console.log(message);
-    if (bootLog) {
-        bootLog.innerHTML += `<br><span style="color:${isError ? '#ff3333' : '#0f0'}">> ${message}</span>`;
-    }
-}
-
-function bootSpeccyGo() {
-    let speccyContainer = document.getElementById("speccy-container");
+document.addEventListener("DOMContentLoaded", () => {
+    let canvas = document.getElementById("speccy-canvas");
     let bootScreen = document.getElementById("boot-screen");
-    bootLog = document.getElementById("boot-log");
+    let bootLog = document.getElementById("boot-log");
 
-    // Make the boot screen semi-transparent so we can see the canvas underneath
-    if (bootScreen) {
-        bootScreen.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
-        bootScreen.style.pointerEvents = "none"; 
+    function logToScreen(message, isError = false) {
+        if (bootLog) {
+            bootLog.innerHTML += `<br><span style="color:${isError ? '#ff3333' : '#0f0'}">> ${message}</span>`;
+        }
     }
 
-    if (speccyContainer && !speccyContainer.requestFullscreen) {
-        speccyContainer.requestFullscreen = speccyContainer.webkitRequestFullscreen || function(){};
-    }
+    logToScreen("BIOS Loaded. Pure JS Engine standing by.");
+    logToScreen("TAP SCREEN TO BOOT.", false);
 
     let speccyInstance = null;
+    const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
 
-    try {
-        logToScreen("Initializing Naked Z80 Engine...");
+    function startEngine() {
+        // Prevent double booting
+        document.body.removeEventListener("touchstart", startEngine);
+        document.body.removeEventListener("click", startEngine);
 
-        // Re-enabling the UI visually proves if the canvas renderer is working at all
-        speccyInstance = JSSpeccy(speccyContainer, {
-            machine: 48, 
-            border: true,
-            uiEnabled: true, 
-            autoStart: false 
-        });
+        logToScreen("Compiling Engine...");
 
-        logToScreen("Engine instantiated. Waiting for WASM to compile...");
-        
-    } catch (err) {
-        logToScreen(`SYNC CRASH: ${err.message}`, true);
+        try {
+            // 1. Boot the pure JS engine synchronously
+            speccyInstance = new JSSpeccy({
+                canvas: canvas,
+                machine: '48k',
+                zoom: 1,
+                border: true,
+                autoload: true 
+            });
+
+            // 2. Fetch the tape as an ArrayBuffer and inject it
+            logToScreen(`Fetching ${targetRom}...`);
+            fetch(targetRom)
+                .then(response => {
+                    if (!response.ok) throw new Error("ROM not found on server.");
+                    return response.arrayBuffer();
+                })
+                .then(buffer => {
+                    speccyInstance.loadTape(new Uint8Array(buffer));
+                    speccyInstance.tapePlay();
+                    
+                    logToScreen("Tape injected. Enjoy the game!");
+                    
+                    // Fade out boot screen
+                    setTimeout(() => {
+                        bootScreen.style.transition = "opacity 0.5s ease";
+                        bootScreen.style.opacity = "0";
+                        setTimeout(() => bootScreen.style.display = 'none', 500);
+                    }, 1500);
+                })
+                .catch(err => logToScreen(`ROM Error: ${err.message}`, true));
+
+        } catch (err) {
+            logToScreen(`Crash: ${err.message}`, true);
+        }
     }
-}
 
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bootSpeccyGo);
-} else {
-    bootSpeccyGo();
-}
+    // Wait for physical user interaction to unlock iOS constraints safely
+    document.body.addEventListener("touchstart", startEngine, { once: true });
+    document.body.addEventListener("click", startEngine, { once: true });
+
+    // Standard Input Mapping
+    window.addEventListener("SPECCY_INPUT", (e) => {
+        if (!speccyInstance) return;
+        const { key, state } = e.detail;
+        const isPressed = state === 'PRESSED';
+        const keyMap = { 'up': 'Q', 'down': 'A', 'left': 'O', 'right': 'P', 'fire': 'SPACE' };
+        
+        if (keyMap[key]) {
+            speccyInstance.setKeyboard(keyMap[key], isPressed);
+        }
+    });
+});
