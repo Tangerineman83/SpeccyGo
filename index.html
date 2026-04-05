@@ -2,20 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SpeccyGo - ZX Spectrum Web Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>SpeccyGo Native</title>
     <link rel="stylesheet" href="css/ui.css">
 </head>
 <body>
-    <div id="orientation-warning">
-        <p>Please rotate your device to landscape mode to play.</p>
-    </div>
-
     <div id="game-container">
-        <div id="speccy-container"></div>
+        <canvas id="speccy-canvas" width="256" height="192"></canvas>
         
         <div id="boot-screen">
-            <p id="boot-log">> SpeccyGo BIOS v1.1...</p>
+            <p id="boot-log">> SpeccyGo BIOS v2.0...</p>
         </div>
 
         <div id="floating-controller" class="hidden">
