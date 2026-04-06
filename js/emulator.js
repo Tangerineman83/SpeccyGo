@@ -24,7 +24,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             if (ctx.state === 'suspended') ctx.resume();
             
-            // Play a microscopic, silent tone to force iOS hardware lock
             const osc = ctx.createOscillator();
             osc.connect(ctx.destination);
             osc.start(0);
@@ -63,23 +62,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
-        // Cursor Joystick maps directly to physical Spectrum number keys
+        // Directions = Cursor Joystick (5,6,7,8). Fire = Spacebar
         const keyMap = {
             'left':  '5',
             'down':  '6',
             'up':    '7',
             'right': '8',
-            'fire':  ' '
+            'fire':  ' ' 
         };
 
         const targetKey = keyMap[key];
         
-        // Inject directly into the emulator, bypassing the browser's DOM entirely
         if (targetKey && typeof speccyInstance.setKeyboard === 'function') {
             speccyInstance.setKeyboard(targetKey, isPressed);
         }
         
-        // Continuous audio wakeup on every button press (iOS safeguard)
+        // Continuous audio wakeup on every button press
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             if (ctx.state === 'suspended') ctx.resume();
