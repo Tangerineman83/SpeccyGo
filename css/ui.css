@@ -1,3 +1,4 @@
+/* --- NATIVE APP RESET --- */
 * {
     margin: 0; padding: 0; box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
@@ -5,10 +6,25 @@
 }
 
 body, html {
-    width: 100%; height: 100%; overflow: hidden;
+    width: 100%; height: 100%;
     background-color: #000;
+    overflow: hidden;
+    overscroll-behavior: none; /* Stops the Safari "bounce" effect */
 }
 
+/* --- THE ROTATE WARNING --- */
+#rotate-overlay {
+    display: none; /* Hidden by default */
+    position: absolute; z-index: 9999;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #111; color: #fff;
+    flex-direction: column; justify-content: center; align-items: center;
+    font-family: -apple-system, sans-serif; text-align: center;
+}
+
+#rotate-overlay h2 { margin-bottom: 10px; color: #ffeb3b; }
+
+/* --- GAME CONTAINER --- */
 #game-container {
     position: relative;
     width: 100vw; height: 100vh;
@@ -20,51 +36,59 @@ body, html {
     display: flex; justify-content: center; align-items: center;
 }
 
+/* Perfect Height Scaling */
 #speccy-container canvas {
-    max-width: 100% !important;
-    max-height: 100% !important;
+    height: 100vh !important; /* Lock to exact screen height */
+    width: auto !important;   /* Let width scale naturally to maintain 4:3 */
+    aspect-ratio: 4 / 3;
     object-fit: contain;
     image-rendering: pixelated;
+    image-rendering: crisp-edges;
 }
 
-/* Default Portrait Layout */
+/* --- THE SPLIT CONTROLLER OVERLAY --- */
 #floating-controller {
-    position: fixed;
-    bottom: env(safe-area-inset-bottom, 20px);
-    left: 0; width: 100%;
-    height: 180px; 
-    z-index: 999;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 30px;
-    pointer-events: none;
+    position: absolute;
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh;
+    z-index: 50;
+    pointer-events: none; /* Let touches pass through to the game if not on a button */
 }
 
 #floating-controller.hidden { display: none; }
 
-.d-pad, .action-buttons {
-    pointer-events: auto;
-}
-
+/* Pin D-Pad to Bottom-Left */
 .d-pad {
+    position: absolute;
+    left: env(safe-area-inset-left, 30px);
+    bottom: 30px;
     display: grid;
     grid-template-areas: 
         ". up ."
         "left . right"
         ". down .";
-    gap: 8px;
+    gap: 12px;
+    pointer-events: auto;
 }
 
+/* Pin Fire to Bottom-Right */
+.action-buttons {
+    position: absolute;
+    right: env(safe-area-inset-right, 30px);
+    bottom: 40px;
+    pointer-events: auto;
+}
+
+/* Button Styling */
 .ctrl-btn {
     width: 60px; height: 60px;
-    background: rgba(255, 255, 255, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
-    color: white; font-weight: bold;
+    color: rgba(255,255,255,0.6); font-weight: bold; font-size: 16px;
     display: flex; justify-content: center; align-items: center;
     font-family: sans-serif;
-    touch-action: none;
+    backdrop-filter: blur(4px); /* Nice iOS glass effect */
 }
 
 #btn-up    { grid-area: up; }
@@ -74,29 +98,22 @@ body, html {
 
 .action-buttons .action {
     width: 85px; height: 85px;
-    background: rgba(255, 0, 0, 0.4);
-    border-color: rgba(255, 0, 0, 0.6);
-    font-size: 20px;
+    background: rgba(255, 50, 50, 0.3);
+    border-color: rgba(255, 50, 50, 0.6);
+    color: rgba(255,255,255,0.8);
 }
 
-.ctrl-btn:active { background: rgba(255, 255, 255, 0.5); }
+.ctrl-btn:active { background: rgba(255, 255, 255, 0.4); transform: scale(0.95); }
 
 #boot-screen {
-    position: fixed; inset: 0;
+    position: absolute; inset: 0;
     background: #000; color: #0f0;
     padding: 20px; z-index: 1000;
     font-family: monospace;
 }
 
-/* --- LANDSCAPE OPTIMIZATION --- */
-@media (orientation: landscape) {
-    #floating-controller {
-        bottom: 50%;
-        transform: translateY(50%);
-        height: auto; 
-        padding: 0 env(safe-area-inset-right, 40px) 0 env(safe-area-inset-left, 40px);
-    }
-    
-    .ctrl-btn { width: 50px; height: 50px; }
-    .action-buttons .action { width: 70px; height: 70px; }
+/* --- ENFORCE LANDSCAPE --- */
+@media (orientation: portrait) {
+    #rotate-overlay { display: flex; }
+    #game-container { display: none !important; }
 }
