@@ -55,32 +55,51 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // 2. BULLETPROOF INPUT API
+    // 2. HYBRID INPUT API
     window.addEventListener("SPECCY_INPUT", (e) => {
         if (!speccyInstance) return;
 
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
-        // Directions = Cursor Joystick (5,6,7,8). Fire = Spacebar
-        const keyMap = {
-            'left':  '5',
-            'down':  '6',
-            'up':    '7',
-            'right': '8',
-            'fire':  ' ' 
-        };
-
-        const targetKey = keyMap[key];
-        
-        if (targetKey && typeof speccyInstance.setKeyboard === 'function') {
-            speccyInstance.setKeyboard(targetKey, isPressed);
-        }
-        
         // Continuous audio wakeup on every button press
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             if (ctx.state === 'suspended') ctx.resume();
-        } catch(e) {}
+        } catch(err) {}
+
+        // --- FIRE BUTTON: Use the proven DOM Event (keyCode: 32) ---
+        if (key === 'fire') {
+            const kbEvent = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
+                key: ' ', code: 'Space', bubbles: true, cancelable: true
+            });
+            Object.defineProperty(kbEvent, 'keyCode', { get: () => 32 });
+            Object.defineProperty(kbEvent, 'which', { get: () => 32 });
+            
+            const container = document.getElementById(viewportId);
+            if (container) {
+                container.dispatchEvent(kbEvent);
+            } else {
+                document.dispatchEvent(kbEvent);
+            }
+
+            // Fallback: Also ping the internal API using the correct string
+            if (typeof speccyInstance.setKeyboard === 'function') {
+                speccyInstance.setKeyboard('SPACE', isPressed);
+            }
+        } 
+        // --- D-PAD: Use the direct internal API for Cursor Keys (5,6,7,8) ---
+        else {
+            const dirMap = {
+                'left':  '5',
+                'down':  '6',
+                'up':    '7',
+                'right': '8'
+            };
+            const targetKey = dirMap[key];
+            if (targetKey && typeof speccyInstance.setKeyboard === 'function') {
+                speccyInstance.setKeyboard(targetKey, isPressed);
+            }
+        }
     });
 });
