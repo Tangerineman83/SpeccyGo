@@ -1,3 +1,19 @@
+// 1. Intercept WebKit AudioContext to capture JSSpeccy's exact audio engine
+let jsspeccyAudioCtx = null;
+const OriginalAudioContext = window.AudioContext || window.webkitAudioContext;
+if (OriginalAudioContext) {
+    window.AudioContext = function() {
+        jsspeccyAudioCtx = new OriginalAudioContext();
+        return jsspeccyAudioCtx;
+    };
+    window.webkitAudioContext = window.AudioContext;
+}
+
+window.addEventListener("error", function(e) {
+    const log = document.getElementById("boot-log");
+    if (log) log.innerHTML += `<br><span style="color:#ff3333;">> SYSTEM HALT: ${e.message}</span>`;
+});
+
 document.addEventListener("DOMContentLoaded", () => {
     const viewportId = 'speccy-container'; 
     const bootScreen = document.getElementById("boot-screen");
@@ -11,11 +27,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const targetRom = `assets/roms/FastFood.tzx`;
 
     function startEngine() {
-        // 1. CRITICAL: Manual Web Audio Resume for iOS
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-            const tempCtx = new AudioCtx();
-            tempCtx.resume();
+        // 2. Unlock the exact context JSSpeccy created
+        if (jsspeccyAudioCtx && jsspeccyAudioCtx.state === 'suspended') {
+            jsspeccyAudioCtx.resume();
         }
 
         window.removeEventListener("touchstart", startEngine);
@@ -23,20 +37,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             logToScreen("Igniting Z80 Engine...");
-            
-            speccyInstance = JSSpeccy(viewportId, {
-                'autostart': true,
-                'model': '48k'
-            });
-
-            // Force audio permission
-            if (speccyInstance.setAudioEnabled) speccyInstance.setAudioEnabled(true);
+            speccyInstance = JSSpeccy(viewportId, { 'autostart': true, 'model': '48k' });
 
             setTimeout(() => {
                 logToScreen("Mounting Tape...");
                 speccyInstance.loadFromUrl(targetRom, {'autoload': true});
                 
-                // Show controls and hide boot screen
                 document.getElementById('floating-controller').classList.remove('hidden');
                 bootScreen.style.opacity = "0";
                 setTimeout(() => bootScreen.style.display = 'none', 800);
@@ -50,20 +56,24 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // --- RE-WIRED INPUT LISTENER ---
+    // 3. Dispatch real DOM Keyboard Events (Bulletproof Input)
     window.addEventListener("SPECCY_INPUT", (e) => {
-        if (!speccyInstance) return;
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
-        // Q=Up, A=Down, O=Left, P=Right, Space=Fire
-        const keyMap = {
-            'up': 'Q', 'down': 'A', 'left': 'O', 'right': 'P', 'fire': ' '
-        };
+        // Q=81, A=65, O=79, P=80, Space=32
+        const keyCodeMap = { 'up': 81, 'down': 65, 'left': 79, 'right': 80, 'fire': 32 };
+        const strMap = { 'up': 'q', 'down': 'a', 'left': 'o', 'right': 'p', 'fire': ' ' };
 
-        const targetKey = keyMap[key];
-        if (targetKey) {
-            speccyInstance.setKeyboard(targetKey, isPressed);
+        const keyCode = keyCodeMap[key];
+        if (keyCode) {
+            document.dispatchEvent(new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
+                key: strMap[key],
+                code: key === 'fire' ? 'Space' : 'Key' + strMap[key].toUpperCase(),
+                keyCode: keyCode,
+                which: keyCode,
+                bubbles: true
+            }));
         }
     });
 });
