@@ -10,9 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }));
         };
 
-        // Touch handlers for zero-latency mobile play
         btn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
+            e.preventDefault(); // STOPS SCROLLING
             sendInput('PRESSED');
         }, { passive: false });
 
@@ -20,10 +19,5 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             sendInput('RELEASED');
         }, { passive: false });
-
-        // Mouse fallbacks
-        btn.addEventListener('mousedown', () => sendInput('PRESSED'));
-        btn.addEventListener('mouseup', () => sendInput('RELEASED'));
-        btn.addEventListener('mouseleave', () => sendInput('RELEASED'));
     });
 });
