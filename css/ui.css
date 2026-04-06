@@ -68,3 +68,29 @@
     z-index: 1;
 }
 
+/* Ensure the container is ready for injection */
+#speccy-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+    background: #000;
+}
+
+/* Force the dynamic canvas to scale correctly for iOS */
+#speccy-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100vw;
+    max-height: 100vh;
+    object-fit: contain;
+    image-rendering: pixelated; /* Sharp pixels on Retina screens */
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+
