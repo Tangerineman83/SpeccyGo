@@ -9,12 +9,11 @@ body, html {
     width: 100%; height: 100%;
     background-color: #000;
     overflow: hidden;
-    overscroll-behavior: none; /* Stops the Safari "bounce" effect */
+    overscroll-behavior: none;
 }
 
-/* --- THE ROTATE WARNING --- */
 #rotate-overlay {
-    display: none; /* Hidden by default */
+    display: none;
     position: absolute; z-index: 9999;
     top: 0; left: 0; width: 100vw; height: 100vh;
     background: #111; color: #fff;
@@ -24,7 +23,6 @@ body, html {
 
 #rotate-overlay h2 { margin-bottom: 10px; color: #ffeb3b; }
 
-/* --- GAME CONTAINER --- */
 #game-container {
     position: relative;
     width: 100vw; height: 100vh;
@@ -36,28 +34,26 @@ body, html {
     display: flex; justify-content: center; align-items: center;
 }
 
-/* Perfect Height Scaling */
 #speccy-container canvas {
-    height: 100vh !important; /* Lock to exact screen height */
-    width: auto !important;   /* Let width scale naturally to maintain 4:3 */
+    height: 100vh !important;
+    width: auto !important;
     aspect-ratio: 4 / 3;
     object-fit: contain;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
 }
 
-/* --- THE SPLIT CONTROLLER OVERLAY --- */
 #floating-controller {
     position: absolute;
     top: 0; left: 0; 
     width: 100vw; height: 100vh;
     z-index: 50;
-    pointer-events: none; /* Let touches pass through to the game if not on a button */
+    pointer-events: none;
 }
 
 #floating-controller.hidden { display: none; }
 
-/* Pin D-Pad to Bottom-Left */
+/* --- TRUE D-PAD VISUALS --- */
 .d-pad {
     position: absolute;
     left: env(safe-area-inset-left, 30px);
@@ -65,13 +61,36 @@ body, html {
     display: grid;
     grid-template-areas: 
         ". up ."
-        "left . right"
+        "left center right"
         ". down .";
-    gap: 12px;
+    gap: 0; /* No gaps so it forms a solid cross */
     pointer-events: auto;
 }
 
-/* Pin Fire to Bottom-Right */
+.center-pivot {
+    grid-area: center;
+    background: rgba(220, 220, 220, 0.4);
+    pointer-events: none;
+}
+
+.ctrl-btn.dir {
+    width: 55px; height: 55px;
+    background: rgba(220, 220, 220, 0.4);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 24px;
+    display: flex; justify-content: center; align-items: center;
+    font-family: sans-serif;
+    backdrop-filter: blur(4px);
+}
+
+/* Shape the borders to make the cross */
+#btn-up    { grid-area: up;    border-radius: 12px 12px 0 0; border-bottom: none; }
+#btn-down  { grid-area: down;  border-radius: 0 0 12px 12px; border-top: none; }
+#btn-left  { grid-area: left;  border-radius: 12px 0 0 12px; border-right: none; }
+#btn-right { grid-area: right; border-radius: 0 12px 12px 0; border-left: none; }
+
+/* --- FIRE BUTTON --- */
 .action-buttons {
     position: absolute;
     right: env(safe-area-inset-right, 30px);
@@ -79,31 +98,18 @@ body, html {
     pointer-events: auto;
 }
 
-/* Button Styling */
-.ctrl-btn {
-    width: 60px; height: 60px;
-    background: rgba(255, 255, 255, 0.15);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    color: rgba(255,255,255,0.6); font-weight: bold; font-size: 16px;
-    display: flex; justify-content: center; align-items: center;
-    font-family: sans-serif;
-    backdrop-filter: blur(4px); /* Nice iOS glass effect */
-}
-
-#btn-up    { grid-area: up; }
-#btn-down  { grid-area: down; }
-#btn-left  { grid-area: left; }
-#btn-right { grid-area: right; }
-
 .action-buttons .action {
     width: 85px; height: 85px;
-    background: rgba(255, 50, 50, 0.3);
-    border-color: rgba(255, 50, 50, 0.6);
+    background: rgba(255, 50, 50, 0.4);
+    border: 2px solid rgba(255, 50, 50, 0.6);
+    border-radius: 50%;
     color: rgba(255,255,255,0.8);
+    font-weight: bold; font-size: 16px;
+    display: flex; justify-content: center; align-items: center;
+    backdrop-filter: blur(4px);
 }
 
-.ctrl-btn:active { background: rgba(255, 255, 255, 0.4); transform: scale(0.95); }
+.ctrl-btn:active { background: rgba(255, 255, 255, 0.6); }
 
 #boot-screen {
     position: absolute; inset: 0;
@@ -112,7 +118,6 @@ body, html {
     font-family: monospace;
 }
 
-/* --- ENFORCE LANDSCAPE --- */
 @media (orientation: portrait) {
     #rotate-overlay { display: flex; }
     #game-container { display: none !important; }
