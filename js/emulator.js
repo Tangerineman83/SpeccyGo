@@ -1,3 +1,17 @@
+// 1. THE AUDIO HIJACK: Intercept the browser's Audio engine
+let sharedAudioCtx = null;
+const NativeAudioContext = window.AudioContext || window.webkitAudioContext;
+
+if (NativeAudioContext) {
+    // Override the global object so JSSpeccy uses OUR unlocked instance
+    window.AudioContext = window.webkitAudioContext = function() {
+        if (!sharedAudioCtx) {
+            sharedAudioCtx = new NativeAudioContext();
+        }
+        return sharedAudioCtx;
+    };
+}
+
 window.addEventListener("error", function(e) {
     const log = document.getElementById("boot-log");
     if (log) log.innerHTML += `<br><span style="color:#ff3333;">> SYSTEM HALT: ${e.message}</span>`;
@@ -13,30 +27,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     let speccyInstance = null;
-    const targetRom = `assets/roms/FastFood.tzx`;
+    const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
 
     function startEngine() {
         window.removeEventListener("touchstart", startEngine);
         window.removeEventListener("click", startEngine);
 
-        // 1. THE iOS AUDIO UNLOCKER (Silent Oscillator Trick)
-        try {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) {
-                const unlockCtx = new AudioCtx();
-                const osc = unlockCtx.createOscillator();
-                osc.connect(unlockCtx.destination);
-                osc.start(0);
-                osc.stop(0.001); // Play a silent sound for 1 millisecond
-                if (unlockCtx.state === 'suspended') unlockCtx.resume();
-            }
-        } catch (e) {
-            logToScreen("Audio bypass skipped.");
+        // 2. THE AUDIO UNLOCK: Done directly inside the physical tap event
+        if (NativeAudioContext) {
+            if (!sharedAudioCtx) sharedAudioCtx = new NativeAudioContext();
+            if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+            
+            // Fire a microscopic, silent tone to permanently wake iOS WebKit Audio
+            const osc = sharedAudioCtx.createOscillator();
+            osc.connect(sharedAudioCtx.destination);
+            osc.start(0);
+            osc.stop(0.001);
         }
 
         try {
             logToScreen("Igniting Z80 Engine...");
             speccyInstance = JSSpeccy(viewportId, { 'autostart': true, 'model': '48k' });
+
+            // Ensure the emulator knows audio is active
+            if (speccyInstance.setAudioEnabled) speccyInstance.setAudioEnabled(true);
 
             setTimeout(() => {
                 logToScreen("Mounting Tape...");
@@ -55,29 +69,40 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // 2. THE INPUT FIX: Standard PC Arrow Keys (Kempston Joystick)
+    // 3. THE INPUT FIX: Hardcoded Q-A-O-P with Safari Polyfill
     window.addEventListener("SPECCY_INPUT", (e) => {
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
-        // Map to standard browser Arrow Keys (JSSpeccy reads these as Kempston Joystick)
+        // ASCII KeyCodes: Q=81, A=65, O=79, P=80, Space=32
         const keyMap = {
-            'up': { code: 'ArrowUp', keyCode: 38 },
-            'down': { code: 'ArrowDown', keyCode: 40 },
-            'left': { code: 'ArrowLeft', keyCode: 37 },
-            'right': { code: 'ArrowRight', keyCode: 39 },
-            'fire': { code: 'Space', keyCode: 32 }
+            'up': 81,   
+            'down': 65,  
+            'left': 79,  
+            'right': 80, 
+            'fire': 32   
         };
 
-        const target = keyMap[key];
-        if (target) {
-            document.dispatchEvent(new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
-                key: target.code,
-                code: target.code,
-                keyCode: target.keyCode,
-                which: target.keyCode,
-                bubbles: true
-            }));
+        const targetKeyCode = keyMap[key];
+        if (targetKeyCode) {
+            const kbEvent = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
+                bubbles: true,
+                cancelable: true,
+                keyCode: targetKeyCode,
+                which: targetKeyCode
+            });
+            
+            // CRITICAL: Safari ignores keyCode in the constructor. We must force it.
+            Object.defineProperty(kbEvent, 'keyCode', { get: () => targetKeyCode });
+            Object.defineProperty(kbEvent, 'which', { get: () => targetKeyCode });
+            
+            // Dispatch directly to the engine container
+            const container = document.getElementById(viewportId);
+            if (container) {
+                container.dispatchEvent(kbEvent);
+            } else {
+                document.dispatchEvent(kbEvent);
+            }
         }
     });
 });
