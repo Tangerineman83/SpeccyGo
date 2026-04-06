@@ -7,6 +7,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>SpeccyGo Native</title>
     <link rel="stylesheet" href="css/ui.css">
+
+    <script>
+        const NativeAudioContext = window.AudioContext || window.webkitAudioContext;
+        let globalSharedAudioCtx = null;
+        if (NativeAudioContext) {
+            window.AudioContext = window.webkitAudioContext = function() {
+                if (!globalSharedAudioCtx) {
+                    globalSharedAudioCtx = new NativeAudioContext();
+                }
+                return globalSharedAudioCtx;
+            };
+        }
+    </script>
 </head>
 <body>
     <div id="rotate-overlay">
@@ -23,13 +36,13 @@
 
         <div id="floating-controller" class="hidden">
             <div class="d-pad">
-                <button id="btn-up" class="ctrl-btn" data-key="up">U</button>
-                <div class="d-pad-middle">
-                    <button id="btn-left" class="ctrl-btn" data-key="left">L</button>
-                    <button id="btn-right" class="ctrl-btn" data-key="right">R</button>
-                </div>
-                <button id="btn-down" class="ctrl-btn" data-key="down">D</button>
+                <button id="btn-up" class="ctrl-btn dir" data-key="up">▲</button>
+                <button id="btn-left" class="ctrl-btn dir" data-key="left">◀</button>
+                <div class="center-pivot"></div>
+                <button id="btn-right" class="ctrl-btn dir" data-key="right">▶</button>
+                <button id="btn-down" class="ctrl-btn dir" data-key="down">▼</button>
             </div>
+            
             <div class="action-buttons">
                 <button id="btn-fire" class="ctrl-btn action" data-key="fire">FIRE</button>
             </div>
