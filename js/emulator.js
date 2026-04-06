@@ -21,37 +21,39 @@ document.addEventListener("DOMContentLoaded", () => {
     let speccyInstance = null;
     const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
 
-    function startEngine() {
-        document.body.removeEventListener("touchstart", startEngine);
-        document.body.removeEventListener("click", startEngine);
+    // ... existing logToScreen functions ...
 
-        logToScreen("Igniting Z80 Engine...");
+function startEngine() {
+    document.body.removeEventListener("touchstart", startEngine);
+    document.body.removeEventListener("click", startEngine);
 
-        try {
-            // This is the v2.2.1 constructor from the HTML you found
-            speccyInstance = JSSpeccy(viewportId, {
-                'autostart': true,
-                'model': '48k'
-            });
+    logToScreen("Igniting Z80 Engine...");
 
-            logToScreen(`Mounting ${targetRom}...`);
+    try {
+        // Points to 'speccy-container' which now exists in index.html
+        speccyInstance = JSSpeccy('speccy-container', {
+            'autostart': true,
+            'model': '48k'
+        });
+
+        logToScreen(`Mounting ${targetRom}...`);
+        
+        // Brief pause to allow the machine to complete its internal 1982 ROM check
+        setTimeout(() => {
+            speccyInstance.loadFromUrl(targetRom, {'autoload': true});
             
-            // Wait 1 second for the Spectrum to "wake up" before loading the tape
             setTimeout(() => {
-                speccyInstance.loadFromUrl(targetRom, {'autoload': true});
-                
-                // Fade out the boot screen
-                setTimeout(() => {
-                    bootScreen.style.transition = "opacity 0.5s ease";
-                    bootScreen.style.opacity = "0";
-                    setTimeout(() => bootScreen.style.display = 'none', 500);
-                }, 1000);
+                bootScreen.style.transition = "opacity 0.8s ease";
+                bootScreen.style.opacity = "0";
+                setTimeout(() => bootScreen.style.display = 'none', 800);
             }, 1000);
+        }, 1200);
 
-        } catch (err) {
-            logToScreen(`Crash: ${err.message}`, true);
-        }
+    } catch (err) {
+        logToScreen(`Crash: ${err.message}`, true);
     }
+}
+
 
     document.body.addEventListener("touchstart", startEngine, { once: true });
     document.body.addEventListener("click", startEngine, { once: true });
