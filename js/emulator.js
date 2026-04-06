@@ -4,7 +4,8 @@ window.addEventListener("error", function(e) {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    const canvas = document.getElementById("speccy-canvas");
+    // We use the ID of the container, just like the demo you found
+    const viewportId = 'speccy-container'; 
     const bootScreen = document.getElementById("boot-screen");
     const bootLog = document.getElementById("boot-log");
 
@@ -14,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    logToScreen("BIOS Loaded. Pure JS Engine standing by.");
+    logToScreen("BIOS v2.2.1 Loaded. standing by.");
     logToScreen("TAP SCREEN TO BOOT.");
 
     let speccyInstance = null;
@@ -24,29 +25,28 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.removeEventListener("touchstart", startEngine);
         document.body.removeEventListener("click", startEngine);
 
-        logToScreen("Compiling Engine...");
+        logToScreen("Igniting Z80 Engine...");
 
         try {
-            // Initialize the v2.2.1 engine
-            speccyInstance = new JSSpeccy(canvas, {
-                machine: '48k',
-                zoom: 1,
-                border: true,
-                autoload: true
+            // This is the v2.2.1 constructor from the HTML you found
+            speccyInstance = JSSpeccy(viewportId, {
+                'autostart': true,
+                'model': '48k'
             });
 
-            logToScreen(`Fetching ${targetRom}...`);
+            logToScreen(`Mounting ${targetRom}...`);
             
-            // Use the v2.2.1 loadFromUrl method
-            speccyInstance.loadFromUrl(targetRom, { autoload: true });
-            
-            logToScreen("Booting Spectrum...");
-            
+            // Wait 1 second for the Spectrum to "wake up" before loading the tape
             setTimeout(() => {
-                bootScreen.style.transition = "opacity 0.5s ease";
-                bootScreen.style.opacity = "0";
-                setTimeout(() => bootScreen.style.display = 'none', 500);
-            }, 2000);
+                speccyInstance.loadFromUrl(targetRom, {'autoload': true});
+                
+                // Fade out the boot screen
+                setTimeout(() => {
+                    bootScreen.style.transition = "opacity 0.5s ease";
+                    bootScreen.style.opacity = "0";
+                    setTimeout(() => bootScreen.style.display = 'none', 500);
+                }, 1000);
+            }, 1000);
 
         } catch (err) {
             logToScreen(`Crash: ${err.message}`, true);
