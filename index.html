@@ -7,21 +7,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>SpeccyGo Native</title>
     <link rel="stylesheet" href="css/ui.css">
-
-    <script>
-        const NativeAudioContext = window.AudioContext || window.webkitAudioContext;
-        let globalSharedAudioCtx = null;
-        if (NativeAudioContext) {
-            window.AudioContext = window.webkitAudioContext = function() {
-                if (!globalSharedAudioCtx) {
-                    globalSharedAudioCtx = new NativeAudioContext();
-                }
-                return globalSharedAudioCtx;
-            };
-        }
-    </script>
 </head>
 <body>
+    <div id="rotate-overlay">
+        <h2>🔄 Rotate Device</h2>
+        <p>Please turn your phone to landscape mode to play.</p>
+    </div>
+
     <div id="game-container">
         <div id="speccy-container"></div>
         
@@ -40,9 +32,6 @@
             </div>
             <div class="action-buttons">
                 <button id="btn-fire" class="ctrl-btn action" data-key="fire">FIRE</button>
-            </div>
-            <div class="system-buttons">
-                <button id="btn-toggle-input">Mode: Joystick</button>
             </div>
         </div>
     </div>
