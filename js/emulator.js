@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // 2. 100% SYNTHETIC DOM INPUT API mapped to W-A-S-D
+    // 2. 100% SYNTHETIC DOM INPUT API mapped to the "Dizzy Standard" (Z, X, K, M)
     window.addEventListener("SPECCY_INPUT", (e) => {
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
@@ -69,12 +69,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch(err) {}
 
-        // Map to W, A, S, D and Spacebar
+        // THE DIZZY STANDARD: Z=Left, X=Right, K=Up, M=Down, Space=Fire
         const keyMap = {
-            'up':    { key: 'W', code: 'KeyW', keyCode: 87 },
-            'down':  { key: 'S', code: 'KeyS', keyCode: 83 },
-            'left':  { key: 'A', code: 'KeyA', keyCode: 65 },
-            'right': { key: 'D', code: 'KeyD', keyCode: 68 },
+            'left':  { key: 'Z', code: 'KeyZ', keyCode: 90 },
+            'right': { key: 'X', code: 'KeyX', keyCode: 88 },
+            'up':    { key: 'K', code: 'KeyK', keyCode: 75 },
+            'down':  { key: 'M', code: 'KeyM', keyCode: 77 },
             'fire':  { key: ' ', code: 'Space', keyCode: 32 }
         };
 
