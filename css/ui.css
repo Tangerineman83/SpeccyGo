@@ -1,4 +1,3 @@
-/* Reset for Mobile */
 * {
     margin: 0; padding: 0; box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
@@ -28,24 +27,24 @@ body, html {
     image-rendering: pixelated;
 }
 
-/* --- THE OVERLAY CONTROLLER --- */
+/* Default Portrait Layout */
 #floating-controller {
     position: fixed;
     bottom: env(safe-area-inset-bottom, 20px);
     left: 0; width: 100%;
-    height: 200px; /* Thumb zone */
+    height: 180px; 
     z-index: 999;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 40px;
-    pointer-events: none; /* Let touches pass through the gaps */
+    padding: 0 30px;
+    pointer-events: none;
 }
 
 #floating-controller.hidden { display: none; }
 
 .d-pad, .action-buttons {
-    pointer-events: auto; /* Buttons are clickable */
+    pointer-events: auto;
 }
 
 .d-pad {
@@ -58,7 +57,7 @@ body, html {
 }
 
 .ctrl-btn {
-    width: 65px; height: 65px;
+    width: 60px; height: 60px;
     background: rgba(255, 255, 255, 0.2);
     border: 2px solid rgba(255, 255, 255, 0.4);
     border-radius: 50%;
@@ -74,7 +73,7 @@ body, html {
 #btn-right { grid-area: right; }
 
 .action-buttons .action {
-    width: 100px; height: 100px;
+    width: 85px; height: 85px;
     background: rgba(255, 0, 0, 0.4);
     border-color: rgba(255, 0, 0, 0.6);
     font-size: 20px;
@@ -87,4 +86,17 @@ body, html {
     background: #000; color: #0f0;
     padding: 20px; z-index: 1000;
     font-family: monospace;
+}
+
+/* --- LANDSCAPE OPTIMIZATION --- */
+@media (orientation: landscape) {
+    #floating-controller {
+        bottom: 50%;
+        transform: translateY(50%);
+        height: auto; 
+        padding: 0 env(safe-area-inset-right, 40px) 0 env(safe-area-inset-left, 40px);
+    }
+    
+    .ctrl-btn { width: 50px; height: 50px; }
+    .action-buttons .action { width: 70px; height: 70px; }
 }
