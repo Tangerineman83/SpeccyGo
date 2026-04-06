@@ -1,9 +1,8 @@
-// 1. THE AUDIO HIJACK: Intercept the browser's Audio engine
+// 1. THE AUDIO HIJACK: Intercept the Audio Engine
 let sharedAudioCtx = null;
 const NativeAudioContext = window.AudioContext || window.webkitAudioContext;
 
 if (NativeAudioContext) {
-    // Override the global object so JSSpeccy uses OUR unlocked instance
     window.AudioContext = window.webkitAudioContext = function() {
         if (!sharedAudioCtx) {
             sharedAudioCtx = new NativeAudioContext();
@@ -33,23 +32,15 @@ document.addEventListener("DOMContentLoaded", () => {
         window.removeEventListener("touchstart", startEngine);
         window.removeEventListener("click", startEngine);
 
-        // 2. THE AUDIO UNLOCK: Done directly inside the physical tap event
-        if (NativeAudioContext) {
-            if (!sharedAudioCtx) sharedAudioCtx = new NativeAudioContext();
-            if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
-            
-            // Fire a microscopic, silent tone to permanently wake iOS WebKit Audio
-            const osc = sharedAudioCtx.createOscillator();
-            osc.connect(sharedAudioCtx.destination);
-            osc.start(0);
-            osc.stop(0.001);
+        // Initial Audio Wakeup Attempt
+        if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+            sharedAudioCtx.resume().catch(() => {});
         }
 
         try {
             logToScreen("Igniting Z80 Engine...");
             speccyInstance = JSSpeccy(viewportId, { 'autostart': true, 'model': '48k' });
 
-            // Ensure the emulator knows audio is active
             if (speccyInstance.setAudioEnabled) speccyInstance.setAudioEnabled(true);
 
             setTimeout(() => {
@@ -69,34 +60,42 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // 3. THE INPUT FIX: Hardcoded Q-A-O-P with Safari Polyfill
+    // 2. THE INPUT FIX & CONTINUOUS AUDIO UNLOCK
     window.addEventListener("SPECCY_INPUT", (e) => {
+        // --- CONTINUOUS AUDIO UNLOCK ---
+        // Every button press forces iOS to evaluate the audio state
+        if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+            sharedAudioCtx.resume().catch(() => {});
+        }
+        if (speccyInstance && speccyInstance.setAudioEnabled) {
+            speccyInstance.setAudioEnabled(true);
+        }
+
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
-        // ASCII KeyCodes: Q=81, A=65, O=79, P=80, Space=32
+        // --- ARROW KEY MAPPING WITH SAFARI POLYFILL ---
         const keyMap = {
-            'up': 81,   
-            'down': 65,  
-            'left': 79,  
-            'right': 80, 
-            'fire': 32   
+            'up': { code: 'ArrowUp', keyCode: 38 },
+            'down': { code: 'ArrowDown', keyCode: 40 },
+            'left': { code: 'ArrowLeft', keyCode: 37 },
+            'right': { code: 'ArrowRight', keyCode: 39 },
+            'fire': { code: 'Space', keyCode: 32 }
         };
 
-        const targetKeyCode = keyMap[key];
-        if (targetKeyCode) {
+        const target = keyMap[key];
+        if (target) {
             const kbEvent = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
+                key: target.code,
+                code: target.code,
                 bubbles: true,
-                cancelable: true,
-                keyCode: targetKeyCode,
-                which: targetKeyCode
+                cancelable: true
             });
             
-            // CRITICAL: Safari ignores keyCode in the constructor. We must force it.
-            Object.defineProperty(kbEvent, 'keyCode', { get: () => targetKeyCode });
-            Object.defineProperty(kbEvent, 'which', { get: () => targetKeyCode });
+            // Force Safari to respect the correct hardware KeyCodes
+            Object.defineProperty(kbEvent, 'keyCode', { get: () => target.keyCode });
+            Object.defineProperty(kbEvent, 'which', { get: () => target.keyCode });
             
-            // Dispatch directly to the engine container
             const container = document.getElementById(viewportId);
             if (container) {
                 container.dispatchEvent(kbEvent);
