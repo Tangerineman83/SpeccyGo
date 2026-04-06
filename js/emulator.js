@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.removeEventListener("touchstart", startEngine);
         window.removeEventListener("click", startEngine);
 
-        // 1. WAKE THE HIJACKED AUDIO CONTEXT
+        // 1. WAKE THE HIJACKED AUDIO CONTEXT (DO NOT TOUCH - IT WORKS!)
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
@@ -57,12 +57,11 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // 2. 100% SYNTHETIC DOM INPUT API
+    // 2. 100% SYNTHETIC DOM INPUT API mapped to W-A-S-D
     window.addEventListener("SPECCY_INPUT", (e) => {
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
-        // Continuous audio wakeup on every button press (Fixes headphone drops!)
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
@@ -70,19 +69,18 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch(err) {}
 
-        // Map to standard PC Keys (Cursor Joystick numbers + Spacebar)
+        // Map to W, A, S, D and Spacebar
         const keyMap = {
-            'left':  { key: '5', code: 'Digit5', keyCode: 53 },
-            'down':  { key: '6', code: 'Digit6', keyCode: 54 },
-            'up':    { key: '7', code: 'Digit7', keyCode: 55 },
-            'right': { key: '8', code: 'Digit8', keyCode: 56 },
-            'fire':  { key: ' ', code: 'Space',  keyCode: 32 }
+            'up':    { key: 'W', code: 'KeyW', keyCode: 87 },
+            'down':  { key: 'S', code: 'KeyS', keyCode: 83 },
+            'left':  { key: 'A', code: 'KeyA', keyCode: 65 },
+            'right': { key: 'D', code: 'KeyD', keyCode: 68 },
+            'fire':  { key: ' ', code: 'Space', keyCode: 32 }
         };
 
         const target = keyMap[key];
         
         if (target) {
-            // Generate the exact same synthetic event that worked for Q and Space
             const kbEvent = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
                 key: target.key,
                 code: target.code,
@@ -90,7 +88,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 cancelable: true
             });
             
-            // Force the exact KeyCode property
             Object.defineProperty(kbEvent, 'keyCode', { get: () => target.keyCode });
             Object.defineProperty(kbEvent, 'which', { get: () => target.keyCode });
             
