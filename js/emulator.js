@@ -1,14 +1,3 @@
-// 1. Intercept WebKit AudioContext to capture JSSpeccy's exact audio engine
-let jsspeccyAudioCtx = null;
-const OriginalAudioContext = window.AudioContext || window.webkitAudioContext;
-if (OriginalAudioContext) {
-    window.AudioContext = function() {
-        jsspeccyAudioCtx = new OriginalAudioContext();
-        return jsspeccyAudioCtx;
-    };
-    window.webkitAudioContext = window.AudioContext;
-}
-
 window.addEventListener("error", function(e) {
     const log = document.getElementById("boot-log");
     if (log) log.innerHTML += `<br><span style="color:#ff3333;">> SYSTEM HALT: ${e.message}</span>`;
@@ -27,13 +16,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const targetRom = `assets/roms/FastFood.tzx`;
 
     function startEngine() {
-        // 2. Unlock the exact context JSSpeccy created
-        if (jsspeccyAudioCtx && jsspeccyAudioCtx.state === 'suspended') {
-            jsspeccyAudioCtx.resume();
-        }
-
         window.removeEventListener("touchstart", startEngine);
         window.removeEventListener("click", startEngine);
+
+        // 1. THE iOS AUDIO UNLOCKER (Silent Oscillator Trick)
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                const unlockCtx = new AudioCtx();
+                const osc = unlockCtx.createOscillator();
+                osc.connect(unlockCtx.destination);
+                osc.start(0);
+                osc.stop(0.001); // Play a silent sound for 1 millisecond
+                if (unlockCtx.state === 'suspended') unlockCtx.resume();
+            }
+        } catch (e) {
+            logToScreen("Audio bypass skipped.");
+        }
 
         try {
             logToScreen("Igniting Z80 Engine...");
@@ -56,22 +55,27 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // 3. Dispatch real DOM Keyboard Events (Bulletproof Input)
+    // 2. THE INPUT FIX: Standard PC Arrow Keys (Kempston Joystick)
     window.addEventListener("SPECCY_INPUT", (e) => {
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
-        // Q=81, A=65, O=79, P=80, Space=32
-        const keyCodeMap = { 'up': 81, 'down': 65, 'left': 79, 'right': 80, 'fire': 32 };
-        const strMap = { 'up': 'q', 'down': 'a', 'left': 'o', 'right': 'p', 'fire': ' ' };
+        // Map to standard browser Arrow Keys (JSSpeccy reads these as Kempston Joystick)
+        const keyMap = {
+            'up': { code: 'ArrowUp', keyCode: 38 },
+            'down': { code: 'ArrowDown', keyCode: 40 },
+            'left': { code: 'ArrowLeft', keyCode: 37 },
+            'right': { code: 'ArrowRight', keyCode: 39 },
+            'fire': { code: 'Space', keyCode: 32 }
+        };
 
-        const keyCode = keyCodeMap[key];
-        if (keyCode) {
+        const target = keyMap[key];
+        if (target) {
             document.dispatchEvent(new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
-                key: strMap[key],
-                code: key === 'fire' ? 'Space' : 'Key' + strMap[key].toUpperCase(),
-                keyCode: keyCode,
-                which: keyCode,
+                key: target.code,
+                code: target.code,
+                keyCode: target.keyCode,
+                which: target.keyCode,
                 bubbles: true
             }));
         }
