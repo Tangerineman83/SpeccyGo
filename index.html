@@ -7,6 +7,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>SpeccyGo Native</title>
     <link rel="stylesheet" href="css/ui.css">
+
+    <script>
+        const NativeAudioContext = window.AudioContext || window.webkitAudioContext;
+        let globalSharedAudioCtx = null;
+        if (NativeAudioContext) {
+            window.AudioContext = window.webkitAudioContext = function() {
+                if (!globalSharedAudioCtx) {
+                    globalSharedAudioCtx = new NativeAudioContext();
+                }
+                return globalSharedAudioCtx;
+            };
+        }
+    </script>
 </head>
 <body>
     <div id="game-container">
