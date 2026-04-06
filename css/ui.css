@@ -1,143 +1,86 @@
-/* --- 1. CORE LAYOUT & RETINA SCALING --- */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+    margin: 0; padding: 0; box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
+    user-select: none;
 }
 
 body, html {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+    width: 100%; height: 100%; overflow: hidden;
     background-color: #000;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 #game-container {
     position: relative;
-    width: 100vw;
-    height: 100vh;
-    background: #000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    width: 100vw; height: 100vh;
+    display: flex; justify-content: center; align-items: center;
 }
 
-/* The Container the Engine injects into */
 #speccy-container {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    /* Respect iPhone Notch/Safe Areas */
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    width: 100%; height: 100%;
+    display: flex; justify-content: center; align-items: center;
 }
 
-/* Force the dynamic canvas to be sharp and centered */
 #speccy-container canvas {
-    max-width: 100% !important;
-    max-height: 100% !important;
-    width: auto !important;
-    height: auto !important;
-    aspect-ratio: 4 / 3;
+    max-width: 100%; max-height: 100%;
     object-fit: contain;
-    image-rendering: pixelated; 
-    image-rendering: crisp-edges;
+    image-rendering: pixelated;
 }
 
-/* --- 2. BOOT & DIAGNOSTIC SCREEN --- */
-#boot-screen {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.9);
-    color: #0f0;
-    padding: 20px;
-    font-family: 'Courier New', Courier, monospace;
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    pointer-events: auto;
-}
-
-/* --- 3. VIRTUAL CONTROLLER STYLING --- */
+/* --- THE NEW OVERLAY CONTROLLER --- */
 #floating-controller {
     position: absolute;
-    bottom: 30px;
-    left: 0;
-    width: 100%;
+    bottom: env(safe-area-inset-bottom, 20px);
+    left: 0; width: 100%;
+    height: 180px; /* Zone for thumbs */
+    z-index: 50;
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    padding: 0 40px;
-    z-index: 50;
-    pointer-events: none; /* Let clicks pass through to the game if not on a button */
+    align-items: center;
+    padding: 0 30px;
+    pointer-events: none; /* Let touches pass to engine if not on a button */
 }
 
-#floating-controller.hidden {
-    display: none;
+.d-pad, .action-buttons {
+    pointer-events: auto;
+    display: grid;
+}
+
+/* Classic Cross Layout for D-Pad */
+.d-pad {
+    grid-template-areas: 
+        ". up ."
+        "left . right"
+        ". down .";
+    gap: 10px;
 }
 
 .ctrl-btn {
-    pointer-events: auto; /* Buttons must be clickable */
-    width: 60px;
-    height: 60px;
-    background: rgba(255, 255, 255, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.4);
+    width: 60px; height: 60px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
-    color: white;
-    font-weight: bold;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    user-select: none;
-    touch-action: manipulation;
+    color: #fff; font-weight: bold;
+    display: flex; justify-content: center; align-items: center;
+    font-family: sans-serif;
 }
 
-.ctrl-btn:active {
-    background: rgba(255, 255, 255, 0.5);
-    transform: scale(0.95);
+.ctrl-btn:active { background: rgba(255, 255, 255, 0.4); }
+
+#btn-up    { grid-area: up; }
+#btn-down  { grid-area: down; }
+#btn-left  { grid-area: left; }
+#btn-right { grid-area: right; }
+
+.action-buttons .action {
+    width: 90px; height: 90px;
+    background: rgba(255, 0, 0, 0.3);
+    border-color: rgba(255, 0, 0, 0.5);
+    font-size: 18px;
 }
 
-/* D-PAD Layout */
-.d-pad {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-}
-
-.d-pad-middle {
-    display: flex;
-    gap: 40px; /* Space between Left and Right */
-}
-
-/* Fire Button */
-.action-buttons .ctrl-btn.action {
-    width: 80px;
-    height: 80px;
-    background: rgba(255, 50, 50, 0.4);
-    border-color: rgba(255, 50, 50, 0.6);
-}
-
-/* Mode Switcher */
-.system-buttons {
-    position: absolute;
-    top: -50px;
-    right: 40px;
-}
-
-#btn-toggle-input {
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid #444;
-    color: #888;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 12px;
+#boot-screen {
+    position: absolute; inset: 0;
+    background: #000; color: #0f0;
+    padding: 20px; z-index: 100;
+    font-family: monospace;
 }
