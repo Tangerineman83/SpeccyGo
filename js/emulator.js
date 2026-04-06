@@ -21,38 +21,45 @@ document.addEventListener("DOMContentLoaded", () => {
     const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
 
     function startEngine() {
-        document.body.removeEventListener("touchstart", startEngine);
-        document.body.removeEventListener("click", startEngine);
+    // 1. Kickstart Web Audio for iOS
+    if (window.AudioContext || window.webkitAudioContext) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const tempCtx = new AudioCtx();
+        tempCtx.resume(); 
+    }
 
-        logToScreen("Igniting Z80 Engine...");
+    document.body.removeEventListener("touchstart", startEngine);
+    document.body.removeEventListener("click", startEngine);
 
-        try {
-            speccyInstance = JSSpeccy(viewportId, {
-                'autostart': true,
-                'model': '48k'
-            });
+    logToScreen("Igniting Z80 Engine...");
 
-            // --- THE AUDIO FIX ---
-            // Force the engine to unmute and resume the AudioContext for WebKit
-            if (speccyInstance.setAudioEnabled) {
-                speccyInstance.setAudioEnabled(true);
-            }
+    try {
+        speccyInstance = JSSpeccy(viewportId, {
+            'autostart': true,
+            'model': '48k'
+        });
 
-            logToScreen(`Mounting ${targetRom}...`);
+        // Force engine audio wake-up
+        if (speccyInstance.setAudioEnabled) speccyInstance.setAudioEnabled(true);
+
+        logToScreen(`Mounting ${targetRom}...`);
+        
+        setTimeout(() => {
+            speccyInstance.loadFromUrl(targetRom, {'autoload': true});
+            // Show the controls once the game starts
+            document.getElementById('floating-controller').classList.remove('hidden');
             
             setTimeout(() => {
-                speccyInstance.loadFromUrl(targetRom, {'autoload': true});
-                
-                setTimeout(() => {
-                    bootScreen.style.transition = "opacity 0.5s ease";
-                    bootScreen.style.opacity = "0";
-                    setTimeout(() => bootScreen.style.display = 'none', 500);
-                }, 1500);
-            }, 1000);
+                bootScreen.style.opacity = "0";
+                setTimeout(() => bootScreen.style.display = 'none', 800);
+            }, 1500);
+        }, 1000);
 
-        } catch (err) {
-            logToScreen(`Crash: ${err.message}`, true);
-        }
+    } catch (err) {
+        logToScreen(`Crash: ${err.message}`, true);
+    }
+}
+
     }
 
     document.body.addEventListener("touchstart", startEngine, { once: true });
