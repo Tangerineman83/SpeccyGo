@@ -4,7 +4,6 @@ window.addEventListener("error", function(e) {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    // We use the ID of the container, just like the demo you found
     const viewportId = 'speccy-container'; 
     const bootScreen = document.getElementById("boot-screen");
     const bootLog = document.getElementById("boot-log");
@@ -15,46 +14,69 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    logToScreen("BIOS v2.2.1 Loaded. standing by.");
-    logToScreen("TAP SCREEN TO BOOT.");
+    logToScreen("BIOS v2.2.1 Standby.");
+    logToScreen("TAP TO UNMUTE & BOOT.");
 
     let speccyInstance = null;
     const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
 
-    // ... existing logToScreen functions ...
+    function startEngine() {
+        document.body.removeEventListener("touchstart", startEngine);
+        document.body.removeEventListener("click", startEngine);
 
-function startEngine() {
-    document.body.removeEventListener("touchstart", startEngine);
-    document.body.removeEventListener("click", startEngine);
+        logToScreen("Igniting Z80 Engine...");
 
-    logToScreen("Igniting Z80 Engine...");
+        try {
+            speccyInstance = JSSpeccy(viewportId, {
+                'autostart': true,
+                'model': '48k'
+            });
 
-    try {
-        // Points to 'speccy-container' which now exists in index.html
-        speccyInstance = JSSpeccy('speccy-container', {
-            'autostart': true,
-            'model': '48k'
-        });
+            // --- THE AUDIO FIX ---
+            // Force the engine to unmute and resume the AudioContext for WebKit
+            if (speccyInstance.setAudioEnabled) {
+                speccyInstance.setAudioEnabled(true);
+            }
 
-        logToScreen(`Mounting ${targetRom}...`);
-        
-        // Brief pause to allow the machine to complete its internal 1982 ROM check
-        setTimeout(() => {
-            speccyInstance.loadFromUrl(targetRom, {'autoload': true});
+            logToScreen(`Mounting ${targetRom}...`);
             
             setTimeout(() => {
-                bootScreen.style.transition = "opacity 0.8s ease";
-                bootScreen.style.opacity = "0";
-                setTimeout(() => bootScreen.style.display = 'none', 800);
+                speccyInstance.loadFromUrl(targetRom, {'autoload': true});
+                
+                setTimeout(() => {
+                    bootScreen.style.transition = "opacity 0.5s ease";
+                    bootScreen.style.opacity = "0";
+                    setTimeout(() => bootScreen.style.display = 'none', 500);
+                }, 1500);
             }, 1000);
-        }, 1200);
 
-    } catch (err) {
-        logToScreen(`Crash: ${err.message}`, true);
+        } catch (err) {
+            logToScreen(`Crash: ${err.message}`, true);
+        }
     }
-}
-
 
     document.body.addEventListener("touchstart", startEngine, { once: true });
     document.body.addEventListener("click", startEngine, { once: true });
+
+    // --- UPDATED INPUT MAPPING (Q, A, O, P, SPACE) ---
+    window.addEventListener("SPECCY_INPUT", (e) => {
+        if (!speccyInstance) return;
+        const { key, state } = e.detail;
+        const isPressed = (state === 'PRESSED');
+
+        // Traditional Spectrum Mapping: Q=Up, A=Down, O=Left, P=Right, Space=Fire
+        const keyMap = {
+            'up': 'Q',
+            'down': 'A',
+            'left': 'O',
+            'right': 'P',
+            'fire': ' '
+        };
+
+        const targetKey = keyMap[key];
+        if (targetKey) {
+            // v2.2.1 API for direct key state setting
+            speccyInstance.setKeyboard(targetKey, isPressed);
+        }
+    });
 });
