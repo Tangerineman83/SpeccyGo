@@ -69,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
             'down':  '6',
             'up':    '7',
             'right': '8',
-            'fire':  '0' 
+            'fire':  ' '
         };
 
         const targetKey = keyMap[key];
