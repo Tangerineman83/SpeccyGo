@@ -1,80 +1,64 @@
-window.addEventListener("error", function(e) {
-    const log = document.getElementById("boot-log");
-    if (log) log.innerHTML += `<br><span style="color:#ff3333;">> SYSTEM HALT: ${e.message}</span>`;
-});
-
 document.addEventListener("DOMContentLoaded", () => {
     const viewportId = 'speccy-container'; 
     const bootScreen = document.getElementById("boot-screen");
     const bootLog = document.getElementById("boot-log");
 
-    function logToScreen(message, isError = false) {
-        if (bootLog) {
-            bootLog.innerHTML += `<br><span style="color:${isError ? '#ff3333' : '#0f0'}">> ${message}</span>`;
-        }
+    function logToScreen(message) {
+        if (bootLog) bootLog.innerHTML += `<br>> ${message}`;
     }
 
-    logToScreen("BIOS v2.2.1 Standby.");
-    logToScreen("TAP ANYWHERE TO BOOT.");
-
     let speccyInstance = null;
-    const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
+    const targetRom = `assets/roms/FastFood.tzx`;
 
     function startEngine() {
-        // Remove listeners immediately to prevent double-booting
+        // 1. CRITICAL: Manual Web Audio Resume for iOS
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+            const tempCtx = new AudioCtx();
+            tempCtx.resume();
+        }
+
         window.removeEventListener("touchstart", startEngine);
         window.removeEventListener("click", startEngine);
 
-        logToScreen("Igniting Z80 Engine...");
-
         try {
-            // Initialize the engine
+            logToScreen("Igniting Z80 Engine...");
+            
             speccyInstance = JSSpeccy(viewportId, {
                 'autostart': true,
                 'model': '48k'
             });
 
-            // Force the AudioContext to resume (iOS specific requirement)
-            if (speccyInstance.setAudioEnabled) {
-                speccyInstance.setAudioEnabled(true);
-            }
+            // Force audio permission
+            if (speccyInstance.setAudioEnabled) speccyInstance.setAudioEnabled(true);
 
-            logToScreen(`Mounting ${targetRom}...`);
-            
             setTimeout(() => {
+                logToScreen("Mounting Tape...");
                 speccyInstance.loadFromUrl(targetRom, {'autoload': true});
                 
-                // Show the controls and hide boot screen
+                // Show controls and hide boot screen
                 document.getElementById('floating-controller').classList.remove('hidden');
-                
-                setTimeout(() => {
-                    bootScreen.style.transition = "opacity 0.8s ease";
-                    bootScreen.style.opacity = "0";
-                    setTimeout(() => bootScreen.style.display = 'none', 800);
-                }, 1500);
+                bootScreen.style.opacity = "0";
+                setTimeout(() => bootScreen.style.display = 'none', 800);
             }, 1000);
 
         } catch (err) {
-            logToScreen(`Crash: ${err.message}`, true);
+            logToScreen("ERROR: " + err.message);
         }
     }
 
-    // Attach to window to ensure the hit-area covers the whole screen
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // Input Listener for Q, A, O, P, Space
+    // --- RE-WIRED INPUT LISTENER ---
     window.addEventListener("SPECCY_INPUT", (e) => {
         if (!speccyInstance) return;
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
+        // Q=Up, A=Down, O=Left, P=Right, Space=Fire
         const keyMap = {
-            'up': 'Q',
-            'down': 'A',
-            'left': 'O',
-            'right': 'P',
-            'fire': ' '  // Space bar
+            'up': 'Q', 'down': 'A', 'left': 'O', 'right': 'P', 'fire': ' '
         };
 
         const targetKey = keyMap[key];
