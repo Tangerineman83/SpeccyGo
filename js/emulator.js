@@ -1,13 +1,14 @@
-// 1. THE AUDIO HIJACK: Intercept the Audio Engine
-let sharedAudioCtx = null;
+// 1. THE AUDIO OVERRIDE: Prepare the global variable
+let unlockedAudioCtx = null;
 const NativeAudioContext = window.AudioContext || window.webkitAudioContext;
 
+// Intercept JSSpeccy's request for an audio engine
 if (NativeAudioContext) {
     window.AudioContext = window.webkitAudioContext = function() {
-        if (!sharedAudioCtx) {
-            sharedAudioCtx = new NativeAudioContext();
+        if (!unlockedAudioCtx) {
+            unlockedAudioCtx = new NativeAudioContext();
         }
-        return sharedAudioCtx;
+        return unlockedAudioCtx;
     };
 }
 
@@ -32,9 +33,19 @@ document.addEventListener("DOMContentLoaded", () => {
         window.removeEventListener("touchstart", startEngine);
         window.removeEventListener("click", startEngine);
 
-        // Initial Audio Wakeup Attempt
-        if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
-            sharedAudioCtx.resume().catch(() => {});
+        // 2. THE AUDIO UNLOCK: Execute natively inside the user tap
+        if (NativeAudioContext) {
+            if (!unlockedAudioCtx) unlockedAudioCtx = new NativeAudioContext();
+            if (unlockedAudioCtx.state === 'suspended') unlockedAudioCtx.resume();
+            
+            // Force the hardware to wake up
+            const osc = unlockedAudioCtx.createOscillator();
+            const gain = unlockedAudioCtx.createGain();
+            gain.gain.value = 0; // Completely silent
+            osc.connect(gain);
+            gain.connect(unlockedAudioCtx.destination);
+            osc.start(0);
+            osc.stop(0.001);
         }
 
         try {
@@ -60,39 +71,36 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // 2. THE INPUT FIX & CONTINUOUS AUDIO UNLOCK
+    // 3. THE INPUT FIX: Native Cursor Joystick (5, 6, 7, 8, 0)
     window.addEventListener("SPECCY_INPUT", (e) => {
-        // --- CONTINUOUS AUDIO UNLOCK ---
-        // Every button press forces iOS to evaluate the audio state
-        if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
-            sharedAudioCtx.resume().catch(() => {});
-        }
-        if (speccyInstance && speccyInstance.setAudioEnabled) {
-            speccyInstance.setAudioEnabled(true);
+        // Continuous Audio Wakeup Check
+        if (unlockedAudioCtx && unlockedAudioCtx.state === 'suspended') {
+            unlockedAudioCtx.resume().catch(() => {});
         }
 
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
-        // --- ARROW KEY MAPPING WITH SAFARI POLYFILL ---
+        // ZX Spectrum Cursor Mapping: 
+        // 5 = Left, 6 = Down, 7 = Up, 8 = Right, 0 = Fire
         const keyMap = {
-            'up': { code: 'ArrowUp', keyCode: 38 },
-            'down': { code: 'ArrowDown', keyCode: 40 },
-            'left': { code: 'ArrowLeft', keyCode: 37 },
-            'right': { code: 'ArrowRight', keyCode: 39 },
-            'fire': { code: 'Space', keyCode: 32 }
+            'left':  { key: '5', code: 'Digit5', keyCode: 53 },
+            'down':  { key: '6', code: 'Digit6', keyCode: 54 },
+            'up':    { key: '7', code: 'Digit7', keyCode: 55 },
+            'right': { key: '8', code: 'Digit8', keyCode: 56 },
+            'fire':  { key: '0', code: 'Digit0', keyCode: 48 }
         };
 
         const target = keyMap[key];
         if (target) {
             const kbEvent = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
-                key: target.code,
+                key: target.key,
                 code: target.code,
                 bubbles: true,
                 cancelable: true
             });
             
-            // Force Safari to respect the correct hardware KeyCodes
+            // Hardcode the keycodes to bypass Safari's event mangling
             Object.defineProperty(kbEvent, 'keyCode', { get: () => target.keyCode });
             Object.defineProperty(kbEvent, 'which', { get: () => target.keyCode });
             
