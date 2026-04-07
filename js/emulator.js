@@ -4,8 +4,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let speccyInstance = null;
     let currentTarget = "";
 
-    // Generate Keyboard
-    const leftKeys = ["1","2","3","4","5","Q","W","E","R","T","A","S","D","F","G","CAPS","Z","X","C","V"];
+    // Optimized Keyboard Layout
+    const leftKeys = ["1","2","3","4","5","Q","W","E","R","T","A","S","D","F","G","SHF","Z","X","C","V"];
     const rightKeys = ["6","7","8","9","0","Y","U","I","O","P","H","J","K","L","ENT","SYM","B","N","M","SPC"];
 
     const setupKB = (id, keys) => {
@@ -22,21 +22,37 @@ document.addEventListener("DOMContentLoaded", () => {
     setupKB('v-kb-left', leftKeys);
     setupKB('v-kb-right', rightKeys);
 
-    document.getElementById('btn-kb-toggle').addEventListener('click', () => {
+    document.getElementById('btn-kb-toggle').addEventListener('click', (e) => {
+        e.preventDefault();
         document.getElementById('v-kb-left').classList.toggle('hidden');
         document.getElementById('v-kb-right').classList.toggle('hidden');
     });
 
     function sendKey(label, isPressed) {
-        let keyChar = label;
-        if(label === "ENT") keyChar = "Enter";
-        if(label === "SPC") keyChar = " ";
-        if(label === "CAPS") keyChar = "Shift";
-        const ev = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', { key: keyChar, bubbles: true });
-        document.getElementById(viewportId).dispatchEvent(ev);
+        const charMap = {
+            "ENT": { k: "Enter", c: 13 },
+            "SPC": { k: " ", c: 32 },
+            "SHF": { k: "Shift", c: 16 },
+            "SYM": { k: "Control", c: 17 }
+        };
+        
+        let keyData = charMap[label] || { k: label, c: label.charCodeAt(0) };
+        
+        // Force the KeyboardEvent with proper Safari KeyCode injection
+        const ev = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
+            key: keyData.k,
+            code: isFinite(label) ? `Digit${label}` : `Key${label.toUpperCase()}`,
+            bubbles: true,
+            cancelable: true
+        });
+
+        Object.defineProperty(ev, 'keyCode', { get: () => keyData.c });
+        Object.defineProperty(ev, 'which', { get: () => keyData.c });
+
+        // Dispatch to the whole document to ensure JSSpeccy catches it
+        document.dispatchEvent(ev);
     }
 
-    // --- RELIABLE FILE LOADER ---
     const fileInput = document.getElementById('rom-upload');
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -47,17 +63,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- CONTROLS ---
     window.addEventListener("SPECCY_INPUT", (e) => {
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
         const map = {
-            'left': 'Z', 'right': 'X', 'up': 'K', 'down': 'M', 'fire': ' ', 'enter': 'Enter'
+            'left': { k: 'Z', c: 90 }, 'right': { k: 'X', c: 88 },
+            'up': { k: 'K', c: 75 }, 'down': { k: 'M', c: 77 },
+            'fire': { k: ' ', c: 32 }, 'enter': { k: 'Enter', c: 13 }
         };
-        const k = map[key];
-        if (k) {
-            const ev = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', { key: k, bubbles: true });
-            document.getElementById(viewportId).dispatchEvent(ev);
+        const target = map[key];
+        if (target) {
+            const ev = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', { key: target.k, bubbles: true });
+            Object.defineProperty(ev, 'keyCode', { get: () => target.c });
+            document.dispatchEvent(ev);
         }
     });
 
