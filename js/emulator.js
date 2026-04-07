@@ -1,117 +1,99 @@
-window.addEventListener("error", function(e) {
-    const log = document.getElementById("boot-log");
-    if (log) log.innerHTML += `<br><span style="color:#ff3333;">> SYSTEM HALT: ${e.message}</span>`;
-});
-
 document.addEventListener("DOMContentLoaded", () => {
     const viewportId = 'speccy-container'; 
-    const bootScreen = document.getElementById("boot-screen");
-    const bootLog = document.getElementById("boot-log");
     const libraryMenu = document.getElementById("library-menu");
-
-    function logToScreen(message) {
-        if (bootLog) bootLog.innerHTML += `<br>> ${message}`;
-    }
-
     let speccyInstance = null;
-    let targetRom = ""; 
 
-    function startEngine() {
-        // WAKE THE AUDIO
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume();
-            const osc = ctx.createOscillator(); osc.connect(ctx.destination);
-            osc.start(0); osc.stop(0.001);
-        } catch (e) { logToScreen("Audio unlock skipped."); }
+    // --- KEYBOARD CONFIG ---
+    const leftKeys = ["1","2","3","4","5","Q","W","E","R","T","A","S","D","F","G","CAPS","Z","X","C","V"];
+    const rightKeys = ["6","7","8","9","0","Y","U","I","O","P","H","J","K","L","ENT","SYM","B","N","M","SPC"];
 
-        try {
-            logToScreen("Igniting Z80 Engine...");
-            speccyInstance = JSSpeccy(viewportId, { 'autostart': true, 'model': '48k' });
-
-            if (speccyInstance.setAudioEnabled) speccyInstance.setAudioEnabled(true);
-
-            setTimeout(() => {
-                logToScreen(`Mounting Tape Data...`);
-                speccyInstance.loadFromUrl(targetRom, {'autoload': true});
-                
-                document.getElementById('floating-controller').classList.remove('hidden');
-                bootScreen.style.opacity = "0";
-                setTimeout(() => bootScreen.style.display = 'none', 800);
-            }, 1000);
-
-        } catch (err) {
-            logToScreen("ERROR: " + err.message);
-        }
-    }
-
-    // --- 1. BUILT-IN ROM BINDING ---
-    const romButtons = document.querySelectorAll('.rom-btn[data-rom]');
-    romButtons.forEach(btn => {
-        const triggerRom = (e) => {
-            e.preventDefault();
-            targetRom = `assets/roms/${btn.getAttribute('data-rom')}`;
-            libraryMenu.classList.add('hidden');
-            startEngine(); 
-        };
-        btn.addEventListener('touchstart', triggerRom, { passive: false });
-        btn.addEventListener('mousedown', triggerRom);
-    });
-
-    // --- 2. CUSTOM DEVICE ROM BINDING ---
-    const customRomBtn = document.getElementById('btn-custom-rom');
-    const fileInput = document.getElementById('rom-upload');
-
-    if (customRomBtn && fileInput) {
-        // Click the hidden file input when the green button is pressed
-        const triggerPicker = (e) => {
-            e.preventDefault();
-            fileInput.click(); 
-        };
-        customRomBtn.addEventListener('touchstart', triggerPicker, { passive: false });
-        customRomBtn.addEventListener('mousedown', triggerPicker);
-
-        // When a file is selected, convert it and load it
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                // Create a temporary URL from the user's local file
-                targetRom = URL.createObjectURL(file);
-                libraryMenu.classList.add('hidden');
-                startEngine();
-            }
+    function setupKB(containerId, keys) {
+        const container = document.getElementById(containerId);
+        keys.forEach(k => {
+            const btn = document.createElement('div');
+            btn.className = 'kb-key';
+            btn.innerText = k;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); sendKey(k, 'PRESSED'); });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); sendKey(k, 'RELEASED'); });
+            container.appendChild(btn);
         });
     }
+    setupKB('v-kb-left', leftKeys);
+    setupKB('v-kb-right', rightKeys);
 
-    // --- DIZZY Z-X-K-M CONTROLS ---
+    document.getElementById('btn-kb-toggle').addEventListener('click', () => {
+        document.getElementById('v-kb-left').classList.toggle('hidden');
+        document.getElementById('v-kb-right').classList.toggle('hidden');
+    });
+
+    function sendKey(label, state) {
+        const isPressed = (state === 'PRESSED');
+        let keyChar = label;
+        if(label === "ENT") keyChar = "ENTER";
+        if(label === "SPC") keyChar = " ";
+        if(label === "CAPS") keyChar = "SHIFT";
+        
+        // Map to keycodes if needed, but JSSpeccy handles strings often
+        const kbEvent = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', { key: keyChar, bubbles: true });
+        document.getElementById(viewportId).dispatchEvent(kbEvent);
+    }
+
+    // --- LOAD FROM DEVICE FIX ---
+    const customRomBtn = document.getElementById('btn-custom-rom');
+    const fileInput = document.getElementById('rom-upload');
+    
+    const triggerFile = (e) => {
+        e.preventDefault();
+        fileInput.click();
+    };
+    customRomBtn.addEventListener('click', triggerFile);
+    customRomBtn.addEventListener('touchstart', triggerFile);
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            targetRom = URL.createObjectURL(file);
+            libraryMenu.classList.add('hidden');
+            startEngine();
+        }
+    });
+
+    // --- INPUT MAPPING ---
     window.addEventListener("SPECCY_INPUT", (e) => {
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
-
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume();
-        } catch(err) {}
-
         const keyMap = {
-            'left':  { key: 'Z', code: 'KeyZ', keyCode: 90 },
-            'right': { key: 'X', code: 'KeyX', keyCode: 88 },
-            'up':    { key: 'K', code: 'KeyK', keyCode: 75 },
-            'down':  { key: 'M', code: 'KeyM', keyCode: 77 },
-            'fire':  { key: ' ', code: 'Space', keyCode: 32 }
+            'left': { k: 'Z', c: 90 }, 'right': { k: 'X', c: 88 },
+            'up': { k: 'K', c: 75 }, 'down': { k: 'M', c: 77 },
+            'fire': { k: ' ', c: 32 }, 'enter': { k: 'Enter', c: 13 }
         };
-
         const target = keyMap[key];
         if (target) {
-            const kbEvent = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
-                key: target.key, code: target.code, bubbles: true, cancelable: true
-            });
-            Object.defineProperty(kbEvent, 'keyCode', { get: () => target.keyCode });
-            Object.defineProperty(kbEvent, 'which', { get: () => target.keyCode });
-            
-            const container = document.getElementById(viewportId);
-            if (container) container.dispatchEvent(kbEvent);
-            else document.dispatchEvent(kbEvent);
+            const ev = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', { key: target.k, keyCode: target.c, which: target.c, bubbles: true });
+            Object.defineProperty(ev, 'keyCode', { get: () => target.c });
+            document.getElementById(viewportId).dispatchEvent(ev);
         }
+    });
+
+    function startEngine() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            ctx.resume();
+            speccyInstance = JSSpeccy(viewportId, { 'autostart': true, 'model': '48k' });
+            setTimeout(() => {
+                speccyInstance.loadFromUrl(targetRom, {'autoload': true});
+                document.getElementById('floating-controller').classList.remove('hidden');
+                document.getElementById('boot-screen').style.display = 'none';
+            }, 1000);
+        } catch (err) { console.error(err); }
+    }
+
+    const romButtons = document.querySelectorAll('.rom-btn[data-rom]');
+    romButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            targetRom = `assets/roms/${btn.getAttribute('data-rom')}`;
+            libraryMenu.classList.add('hidden');
+            startEngine();
+        });
     });
 });
