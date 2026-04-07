@@ -1,4 +1,4 @@
-/* --- APP RESET --- */
+/* --- NATIVE APP RESET --- */
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
 body, html { width: 100%; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
 
@@ -8,52 +8,65 @@ body, html { width: 100%; height: 100%; background: #000; overflow: hidden; over
 /* --- D-PAD ALIGNMENT FIX --- */
 .d-pad-wrapper {
     position: absolute; 
-    left: env(safe-area-inset-left, 20px); 
-    bottom: 60px; /* Increased from 30px to prevent overlap */
-    width: 144px; height: 144px;
+    left: env(safe-area-inset-left, 25px); 
+    bottom: 80px; /* Moved up to clear home bar and prevent thumb cramping */
+    width: 150px; height: 150px;
     display: grid;
-    grid-template-columns: repeat(3, 48px);
-    grid-template-rows: repeat(3, 48px);
+    grid-template-columns: repeat(3, 50px);
+    grid-template-rows: repeat(3, 50px);
     grid-template-areas: ". up ." "left center right" ". down .";
     pointer-events: auto;
 }
-.d-pad-center { grid-area: center; background: #222; }
-.ctrl-btn.dir { background: #222; color: #555; display: flex; justify-content: center; align-items: center; border: none; font-size: 20px; }
-#btn-up { grid-area: up; border-radius: 8px 8px 0 0; }
-#btn-down { grid-area: down; border-radius: 0 0 8px 8px; }
-#btn-left { grid-area: left; border-radius: 8px 0 0 8px; }
-#btn-right { grid-area: right; border-radius: 0 8px 8px 0; }
+.d-pad-center { grid-area: center; background: #222; border: 1px solid #333; }
+.ctrl-btn.dir { background: #222; color: #666; display: flex; justify-content: center; align-items: center; border: 1px solid #333; font-size: 20px; }
+#btn-up { grid-area: up; border-radius: 10px 10px 0 0; }
+#btn-down { grid-area: down; border-radius: 0 0 10px 10px; }
+#btn-left { grid-area: left; border-radius: 10px 0 0 10px; }
+#btn-right { grid-area: right; border-radius: 0 10px 10px 0; }
 
-/* --- ACTION BUTTONS PADDING --- */
+/* --- ACTION BUTTONS --- */
 .action-wrapper {
     position: absolute; 
-    right: env(safe-area-inset-right, 20px); 
-    bottom: 60px; /* Increased to match D-Pad */
-    display: flex; gap: 15px; align-items: flex-end; pointer-events: auto;
+    right: env(safe-area-inset-right, 25px); 
+    bottom: 80px; 
+    display: flex; gap: 20px; align-items: flex-end; pointer-events: auto;
 }
-.ctrl-btn.action { width: 80px; height: 80px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ff4d4d, #cc0000); border: 2px solid #660000; color: white; font-weight: bold; }
-.ctrl-btn.action.select { width: 60px; height: 60px; background: radial-gradient(circle at 30% 30%, #444, #111); border-color: #000; font-size: 9px; }
+.ctrl-btn.action { width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ff4d4d, #cc0000); border: 2px solid #660000; color: white; font-weight: bold; box-shadow: 0 6px 0 #800; }
+.ctrl-btn.action.select { width: 70px; height: 70px; background: radial-gradient(circle at 30% 30%, #444, #111); border-color: #000; font-size: 10px; box-shadow: 0 4px 0 #000; }
+.ctrl-btn:active { transform: translateY(3px); box-shadow: none; }
 
-/* --- PILLAR KEYBOARDS (FITS SIDEBARS) --- */
+/* --- PILLAR KEYBOARDS (TOP CORNERS) --- */
 .v-kb {
     position: absolute; 
-    top: 50%; transform: translateY(-50%);
-    width: 18vw; /* Narrow enough for the 4:3 sidebars */
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
-    padding: 5px; background: rgba(255,255,255,0.05); border-radius: 5px;
+    top: env(safe-area-inset-top, 20px);
+    width: 160px; /* Fits perfectly in the black pillars of a 4:3 game */
+    display: grid; 
+    grid-template-columns: repeat(5, 1fr); 
+    gap: 4px;
+    padding: 6px; 
+    background: rgba(255,255,255,0.05); 
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
     pointer-events: auto; z-index: 100;
 }
-#v-kb-left { left: 5px; }
-#v-kb-right { right: 5px; }
+#v-kb-left { left: 10px; }
+#v-kb-right { right: 10px; }
 .v-kb.hidden { display: none; }
-.kb-key { background: rgba(255,255,255,0.15); color: #aaa; padding: 12px 0; text-align: center; font-family: monospace; border-radius: 3px; font-size: 11px; }
-.kb-key:active { background: rgba(255,255,255,0.4); color: #fff; }
 
-/* --- MISC --- */
-.custom-label { display: block; background: #0f0 !important; color: #000 !important; text-align: center; cursor: pointer; }
-#system-bar { position: absolute; top: 10px; left: 10px; z-index: 200; pointer-events: auto; }
-.sys-btn { background: rgba(255,255,255,0.1); border: 1px solid white; color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; }
+.kb-key { 
+    background: #1a1a1a; 
+    border: 1px solid #333; 
+    color: #0f0; 
+    height: 35px;
+    display: flex; justify-content: center; align-items: center;
+    font-family: monospace; border-radius: 4px; font-size: 12px; 
+}
+.kb-key:active { background: #0f0; color: #000; }
+
+/* --- SYSTEM BAR --- */
+#system-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 200; pointer-events: auto; }
+.sys-btn { background: rgba(0,255,0,0.1); border: 1px solid #0f0; color: #0f0; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; }
+
 #library-menu { position: absolute; inset: 0; background: #000; color: #0f0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; font-family: monospace; }
 #library-menu.hidden { display: none; }
-.rom-btn { width: 260px; padding: 12px; background: #111; border: 2px solid #0f0; color: #0f0; margin-bottom: 8px; font-family: monospace; font-size: 14px; text-decoration: none; }
-@media (orientation: portrait) { #rotate-overlay { display: flex; position: absolute; inset: 0; background: #111; color: white; justify-content: center; align-items: center; z-index: 9999; text-align: center; padding: 20px; } }
+.rom-btn { width: 280px; padding: 15px; background: #111; border: 2px solid #0f0; color: #0f0; margin-bottom: 10px; font-family: monospace; font-size: 15px; }
