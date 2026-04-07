@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     let speccyInstance = null;
-    let targetRom = ""; // This is now set by the menu
+    let targetRom = ""; 
 
     function startEngine() {
         // WAKE THE AUDIO
@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (speccyInstance.setAudioEnabled) speccyInstance.setAudioEnabled(true);
 
             setTimeout(() => {
-                logToScreen(`Mounting ${targetRom}...`);
+                logToScreen(`Mounting Tape Data...`);
                 speccyInstance.loadFromUrl(targetRom, {'autoload': true});
                 
                 document.getElementById('floating-controller').classList.remove('hidden');
@@ -45,22 +45,43 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // --- ROM LIBRARY BINDING ---
-    const romButtons = document.querySelectorAll('.rom-btn');
+    // --- 1. BUILT-IN ROM BINDING ---
+    const romButtons = document.querySelectorAll('.rom-btn[data-rom]');
     romButtons.forEach(btn => {
         const triggerRom = (e) => {
             e.preventDefault();
-            // 1. Grab the specific file name
             targetRom = `assets/roms/${btn.getAttribute('data-rom')}`;
-            // 2. Hide the menu
             libraryMenu.classList.add('hidden');
-            // 3. Boot the engine (button tap acts as audio unlock)
             startEngine(); 
         };
-        
         btn.addEventListener('touchstart', triggerRom, { passive: false });
         btn.addEventListener('mousedown', triggerRom);
     });
+
+    // --- 2. CUSTOM DEVICE ROM BINDING ---
+    const customRomBtn = document.getElementById('btn-custom-rom');
+    const fileInput = document.getElementById('rom-upload');
+
+    if (customRomBtn && fileInput) {
+        // Click the hidden file input when the green button is pressed
+        const triggerPicker = (e) => {
+            e.preventDefault();
+            fileInput.click(); 
+        };
+        customRomBtn.addEventListener('touchstart', triggerPicker, { passive: false });
+        customRomBtn.addEventListener('mousedown', triggerPicker);
+
+        // When a file is selected, convert it and load it
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Create a temporary URL from the user's local file
+                targetRom = URL.createObjectURL(file);
+                libraryMenu.classList.add('hidden');
+                startEngine();
+            }
+        });
+    }
 
     // --- DIZZY Z-X-K-M CONTROLS ---
     window.addEventListener("SPECCY_INPUT", (e) => {
