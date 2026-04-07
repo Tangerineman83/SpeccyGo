@@ -57,14 +57,29 @@ document.addEventListener("DOMContentLoaded", () => {
             sysMsg.innerText = msg;
             sysMsg.style.opacity = 1;
             setTimeout(() => sysMsg.style.opacity = 0, 2000);
+        } else {
+            console.log("SYS MSG:", msg); // Fallback if UI is hidden
         }
     }
 
-    document.getElementById('btn-save')?.addEventListener('touchstart', (e) => {
-        e.preventDefault();
+    // Universal button binder (Catches both touches and mouse clicks)
+    function bindSystemButton(btnId, actionFunction) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        
+        const triggerAction = (e) => {
+            e.preventDefault();
+            actionFunction();
+        };
+
+        btn.addEventListener('touchstart', triggerAction, { passive: false });
+        btn.addEventListener('mousedown', triggerAction);
+    }
+
+    bindSystemButton('btn-save', () => {
         try {
             if (speccyInstance && typeof speccyInstance.getSnapshot === 'function') {
-                const snap = speccyInstance.getSnapshot(); // Pull binary snapshot
+                const snap = speccyInstance.getSnapshot(); 
                 const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(snap)));
                 localStorage.setItem('speccy_save', b64);
                 showSysMessage("STATE SAVED");
@@ -74,8 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch(err) { showSysMessage("SAVE FAILED"); }
     });
 
-    document.getElementById('btn-load')?.addEventListener('touchstart', (e) => {
-        e.preventDefault();
+    bindSystemButton('btn-load', () => {
         try {
             const save = localStorage.getItem('speccy_save');
             if (!save) {
@@ -86,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const str = atob(save);
                 const bytes = new Uint8Array(str.length);
                 for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
-                speccyInstance.loadSnapshot(bytes); // Inject binary snapshot
+                speccyInstance.loadSnapshot(bytes); 
                 showSysMessage("STATE LOADED");
             } else {
                 showSysMessage("ENGINE RESTRICTED");
