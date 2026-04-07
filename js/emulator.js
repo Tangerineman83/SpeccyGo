@@ -7,18 +7,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const viewportId = 'speccy-container'; 
     const bootScreen = document.getElementById("boot-screen");
     const bootLog = document.getElementById("boot-log");
+    const libraryMenu = document.getElementById("library-menu");
 
     function logToScreen(message) {
         if (bootLog) bootLog.innerHTML += `<br>> ${message}`;
     }
 
     let speccyInstance = null;
-    const targetRom = `assets/roms/${new URLSearchParams(window.location.search).get('game') || "FastFood.tzx"}`;
+    let targetRom = ""; // This is now set by the menu
 
     function startEngine() {
-        window.removeEventListener("touchstart", startEngine);
-        window.removeEventListener("click", startEngine);
-
         // WAKE THE AUDIO
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -34,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (speccyInstance.setAudioEnabled) speccyInstance.setAudioEnabled(true);
 
             setTimeout(() => {
-                logToScreen("Mounting Tape...");
+                logToScreen(`Mounting ${targetRom}...`);
                 speccyInstance.loadFromUrl(targetRom, {'autoload': true});
                 
                 document.getElementById('floating-controller').classList.remove('hidden');
@@ -47,65 +45,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    window.addEventListener("touchstart", startEngine, { once: true });
-    window.addEventListener("click", startEngine, { once: true });
-
-    // --- SYSTEM MENU: SAVE / LOAD STATE ---
-    function showSysMessage(msg) {
-        const sysMsg = document.getElementById("sys-message");
-        if (sysMsg) {
-            sysMsg.innerText = msg;
-            sysMsg.style.opacity = 1;
-            setTimeout(() => sysMsg.style.opacity = 0, 2000);
-        } else {
-            console.log("SYS MSG:", msg); // Fallback if UI is hidden
-        }
-    }
-
-    // Universal button binder (Catches both touches and mouse clicks)
-    function bindSystemButton(btnId, actionFunction) {
-        const btn = document.getElementById(btnId);
-        if (!btn) return;
-        
-        const triggerAction = (e) => {
+    // --- ROM LIBRARY BINDING ---
+    const romButtons = document.querySelectorAll('.rom-btn');
+    romButtons.forEach(btn => {
+        const triggerRom = (e) => {
             e.preventDefault();
-            actionFunction();
+            // 1. Grab the specific file name
+            targetRom = `assets/roms/${btn.getAttribute('data-rom')}`;
+            // 2. Hide the menu
+            libraryMenu.classList.add('hidden');
+            // 3. Boot the engine (button tap acts as audio unlock)
+            startEngine(); 
         };
-
-        btn.addEventListener('touchstart', triggerAction, { passive: false });
-        btn.addEventListener('mousedown', triggerAction);
-    }
-
-    bindSystemButton('btn-save', () => {
-        try {
-            if (speccyInstance && typeof speccyInstance.getSnapshot === 'function') {
-                const snap = speccyInstance.getSnapshot(); 
-                const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(snap)));
-                localStorage.setItem('speccy_save', b64);
-                showSysMessage("STATE SAVED");
-            } else {
-                showSysMessage("ENGINE RESTRICTED");
-            }
-        } catch(err) { showSysMessage("SAVE FAILED"); }
-    });
-
-    bindSystemButton('btn-load', () => {
-        try {
-            const save = localStorage.getItem('speccy_save');
-            if (!save) {
-                showSysMessage("NO SAVE FOUND");
-                return;
-            }
-            if (speccyInstance && typeof speccyInstance.loadSnapshot === 'function') {
-                const str = atob(save);
-                const bytes = new Uint8Array(str.length);
-                for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
-                speccyInstance.loadSnapshot(bytes); 
-                showSysMessage("STATE LOADED");
-            } else {
-                showSysMessage("ENGINE RESTRICTED");
-            }
-        } catch(err) { showSysMessage("LOAD FAILED"); }
+        
+        btn.addEventListener('touchstart', triggerRom, { passive: false });
+        btn.addEventListener('mousedown', triggerRom);
     });
 
     // --- DIZZY Z-X-K-M CONTROLS ---
