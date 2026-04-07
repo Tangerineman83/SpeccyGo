@@ -7,15 +7,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>SpeccyGo Native</title>
     <link rel="stylesheet" href="css/ui.css">
-
     <script>
         const NativeAudioContext = window.AudioContext || window.webkitAudioContext;
         let globalSharedAudioCtx = null;
         if (NativeAudioContext) {
             window.AudioContext = window.webkitAudioContext = function() {
-                if (!globalSharedAudioCtx) {
-                    globalSharedAudioCtx = new NativeAudioContext();
-                }
+                if (!globalSharedAudioCtx) globalSharedAudioCtx = new NativeAudioContext();
                 return globalSharedAudioCtx;
             };
         }
@@ -34,9 +31,8 @@
             <h2>INSERT TAPE</h2>
             <div class="rom-list">
                 <button class="rom-btn" data-rom="FastFood.tzx">Fast Food</button>
-                
+                <button class="rom-btn" data-rom="Dizzy3-FantasyWorldDizzy.tzx">Fantasy World Dizzy</button>
                 <hr style="border-color:#0f0; margin: 10px 0;">
-                
                 <button id="btn-custom-rom" class="rom-btn" style="background:#0f0; color:#000;">LOAD FROM DEVICE...</button>
                 <input type="file" id="rom-upload" accept=".tzx,.tap" style="display: none;">
             </div>
@@ -47,6 +43,13 @@
         </div>
 
         <div id="floating-controller" class="hidden">
+            <div id="system-bar">
+                <button id="btn-kb-toggle" class="sys-btn">⌨ KEYBOARD</button>
+            </div>
+
+            <div id="v-kb-left" class="v-kb hidden"></div>
+            <div id="v-kb-right" class="v-kb hidden"></div>
+
             <div class="d-pad-wrapper">
                 <button id="btn-up" class="ctrl-btn dir" data-key="up">▲</button>
                 <button id="btn-left" class="ctrl-btn dir" data-key="left">◀</button>
@@ -56,6 +59,7 @@
             </div>
             
             <div class="action-wrapper">
+                <button id="btn-enter" class="ctrl-btn action select" data-key="enter">ENTER</button>
                 <button id="btn-fire" class="ctrl-btn action" data-key="fire">FIRE</button>
             </div>
         </div>
