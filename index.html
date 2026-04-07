@@ -21,7 +21,7 @@
 <body>
     <div id="rotate-overlay">
         <h2>🔄 Rotate Device</h2>
-        <p>Please turn your phone to landscape mode to play.</p>
+        <p>Please turn to landscape mode.</p>
     </div>
 
     <div id="game-container">
@@ -33,14 +33,13 @@
                 <button class="rom-btn" data-rom="FastFood.tzx">Fast Food</button>
                 <button class="rom-btn" data-rom="Dizzy3-FantasyWorldDizzy.tzx">Fantasy World Dizzy</button>
                 <hr style="border-color:#0f0; margin: 10px 0;">
-                <button id="btn-custom-rom" class="rom-btn" style="background:#0f0; color:#000;">LOAD FROM DEVICE...</button>
+                
+                <label for="rom-upload" class="rom-btn custom-label">LOAD FROM DEVICE...</label>
                 <input type="file" id="rom-upload" accept=".tzx,.tap" style="display: none;">
             </div>
         </div>
 
-        <div id="boot-screen">
-            <p id="boot-log">> SpeccyGo BIOS v2.2.1...</p>
-        </div>
+        <div id="boot-screen"><p id="boot-log">> SpeccyGo BIOS v2.2.1...</p></div>
 
         <div id="floating-controller" class="hidden">
             <div id="system-bar">
