@@ -140,3 +140,36 @@ body, html {
     #rotate-overlay { display: flex; }
     #game-container { display: none !important; }
 }
+
+/* --- TAPE LIBRARY MENU --- */
+#library-menu {
+    position: absolute; inset: 0; z-index: 2000;
+    background: #000; color: #0f0;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    font-family: monospace;
+}
+
+#library-menu.hidden { display: none; }
+
+#library-menu h2 {
+    margin-bottom: 25px; color: #ffeb3b; font-size: 24px;
+    text-shadow: 0 0 10px rgba(255,235,59,0.5); letter-spacing: 2px;
+}
+
+.rom-list {
+    display: flex; flex-direction: column; gap: 15px; 
+    width: 80%; max-width: 350px;
+}
+
+.rom-btn {
+    background: #111; border: 2px solid #0f0; color: #0f0; 
+    padding: 16px; font-size: 16px; font-family: monospace; font-weight: bold;
+    border-radius: 8px; text-transform: uppercase; cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 255, 0, 0.2);
+    transition: transform 0.1s, background 0.1s;
+}
+
+.rom-btn:active {
+    background: #0f0; color: #000; transform: scale(0.96);
+}
+
