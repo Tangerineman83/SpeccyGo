@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>SpeccyGo Native</title>
     <link rel="stylesheet" href="css/ui.css">
-    
+
     <script>
         const NativeAudioContext = window.AudioContext || window.webkitAudioContext;
         let globalSharedAudioCtx = null;
@@ -30,13 +30,19 @@
     <div id="game-container">
         <div id="speccy-container"></div>
         
+        <div id="library-menu">
+            <h2>INSERT TAPE</h2>
+            <div class="rom-list">
+                <button class="rom-btn" data-rom="FastFood.tzx">Fast Food</button>
+            </div>
+        </div>
+
         <div id="boot-screen">
             <p id="boot-log">> SpeccyGo BIOS v2.2.1...</p>
         </div>
 
         <div id="floating-controller" class="hidden">
-            
-          <div class="d-pad-wrapper">
+            <div class="d-pad-wrapper">
                 <button id="btn-up" class="ctrl-btn dir" data-key="up">▲</button>
                 <button id="btn-left" class="ctrl-btn dir" data-key="left">◀</button>
                 <div class="d-pad-center"></div>
