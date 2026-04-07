@@ -19,20 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
         window.removeEventListener("touchstart", startEngine);
         window.removeEventListener("click", startEngine);
 
-        // 1. WAKE THE HIJACKED AUDIO CONTEXT (DO NOT TOUCH - IT WORKS!)
+        // WAKE THE AUDIO
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
-                ctx.resume();
-            }
-            
-            const osc = ctx.createOscillator();
-            osc.connect(ctx.destination);
-            osc.start(0);
-            osc.stop(0.001);
-        } catch (e) {
-            logToScreen("Audio unlock skipped.");
-        }
+            if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume();
+            const osc = ctx.createOscillator(); osc.connect(ctx.destination);
+            osc.start(0); osc.stop(0.001);
+        } catch (e) { logToScreen("Audio unlock skipped."); }
 
         try {
             logToScreen("Igniting Z80 Engine...");
@@ -57,19 +50,60 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("touchstart", startEngine, { once: true });
     window.addEventListener("click", startEngine, { once: true });
 
-    // 2. 100% SYNTHETIC DOM INPUT API mapped to the "Dizzy Standard" (Z, X, K, M)
+    // --- SYSTEM MENU: SAVE / LOAD STATE ---
+    function showSysMessage(msg) {
+        const sysMsg = document.getElementById("sys-message");
+        if (sysMsg) {
+            sysMsg.innerText = msg;
+            sysMsg.style.opacity = 1;
+            setTimeout(() => sysMsg.style.opacity = 0, 2000);
+        }
+    }
+
+    document.getElementById('btn-save')?.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        try {
+            if (speccyInstance && typeof speccyInstance.getSnapshot === 'function') {
+                const snap = speccyInstance.getSnapshot(); // Pull binary snapshot
+                const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(snap)));
+                localStorage.setItem('speccy_save', b64);
+                showSysMessage("STATE SAVED");
+            } else {
+                showSysMessage("ENGINE RESTRICTED");
+            }
+        } catch(err) { showSysMessage("SAVE FAILED"); }
+    });
+
+    document.getElementById('btn-load')?.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        try {
+            const save = localStorage.getItem('speccy_save');
+            if (!save) {
+                showSysMessage("NO SAVE FOUND");
+                return;
+            }
+            if (speccyInstance && typeof speccyInstance.loadSnapshot === 'function') {
+                const str = atob(save);
+                const bytes = new Uint8Array(str.length);
+                for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
+                speccyInstance.loadSnapshot(bytes); // Inject binary snapshot
+                showSysMessage("STATE LOADED");
+            } else {
+                showSysMessage("ENGINE RESTRICTED");
+            }
+        } catch(err) { showSysMessage("LOAD FAILED"); }
+    });
+
+    // --- DIZZY Z-X-K-M CONTROLS ---
     window.addEventListener("SPECCY_INPUT", (e) => {
         const { key, state } = e.detail;
         const isPressed = (state === 'PRESSED');
 
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
-                ctx.resume();
-            }
+            if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume();
         } catch(err) {}
 
-        // THE DIZZY STANDARD: Z=Left, X=Right, K=Up, M=Down, Space=Fire
         const keyMap = {
             'left':  { key: 'Z', code: 'KeyZ', keyCode: 90 },
             'right': { key: 'X', code: 'KeyX', keyCode: 88 },
@@ -79,24 +113,16 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         const target = keyMap[key];
-        
         if (target) {
             const kbEvent = new KeyboardEvent(isPressed ? 'keydown' : 'keyup', {
-                key: target.key,
-                code: target.code,
-                bubbles: true,
-                cancelable: true
+                key: target.key, code: target.code, bubbles: true, cancelable: true
             });
-            
             Object.defineProperty(kbEvent, 'keyCode', { get: () => target.keyCode });
             Object.defineProperty(kbEvent, 'which', { get: () => target.keyCode });
             
             const container = document.getElementById(viewportId);
-            if (container) {
-                container.dispatchEvent(kbEvent);
-            } else {
-                document.dispatchEvent(kbEvent);
-            }
+            if (container) container.dispatchEvent(kbEvent);
+            else document.dispatchEvent(kbEvent);
         }
     });
 });
